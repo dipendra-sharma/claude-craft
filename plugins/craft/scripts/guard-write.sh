@@ -1,7 +1,7 @@
 #!/bin/bash
 set -uo pipefail
 
-[ "${CLAUDE_HOUSE_RULES:-on}" = "off" ] && exit 0
+[ "${CLAUDE_CRAFT_RULES:-on}" = "off" ] && exit 0
 
 input=$(cat)
 path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty')
@@ -9,7 +9,7 @@ path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebo
 base=$(basename "$path")
 
 deny() {
-  printf 'Blocked: hand-editing %s.\n\n%s\n\nThe CLI is the only writer for this file. Editing a lockfile by hand is always wrong.\nNo CLI available, or offline? Re-run with CLAUDE_HOUSE_RULES=off prefixed and say why first.\n' "$base" "$1" >&2
+  printf 'Blocked: hand-editing %s.\n\n%s\n\nThe CLI is the only writer for this file. Editing a lockfile by hand is always wrong.\nNo CLI available, or offline? Re-run with CLAUDE_CRAFT_RULES=off prefixed and say why first.\n' "$base" "$1" >&2
   exit 2
 }
 

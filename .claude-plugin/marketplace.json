@@ -1,5 +1,5 @@
 {
-  "name": "dipendra-tools",
+  "name": "dipendra",
   "owner": {
     "name": "Dipendra Sharma",
     "email": "deependrasharma55@gmail.com"
@@ -10,9 +10,9 @@
   },
   "plugins": [
     {
-      "name": "house",
-      "source": "house",
-      "displayName": "House Rules",
+      "name": "craft",
+      "source": "craft",
+      "displayName": "Craft",
       "description": "Authored best-practice skills, plus hooks that block rm, hand-edited manifests and lockfiles, attribution trailers, unsafe git, sleep, and overlapping builds.",
       "category": "productivity",
       "keywords": ["best-practices", "guardrails", "hooks", "code-quality"],

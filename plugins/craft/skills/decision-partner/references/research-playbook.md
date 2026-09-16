@@ -81,6 +81,8 @@ Then carry the resolution into the answer in one line. "Older comparisons say X;
 
 Any number that affects the decision gets computed, with the calculator, not estimated in your head — including the easy-looking ones. Show the arithmetic in one line so they can check it.
 
+Then check your derived figures against your own stated inputs before you ship. A monthly rate quoted in one paragraph and a multi-month total quoted in the next must actually multiply out; when they don't, nothing catches it, because both numbers look plausible on their own. Multiply your own rate by your own quantity and confirm you get your own total.
+
 Compare like with like: monthly versus monthly, with the same usage assumptions, including the costs people forget (transfer, support tier, the engineer-hours of running it). State the assumptions next to the result, because a cost comparison is only as good as its assumed volume.
 
 When a number is a guess, label it a guess and give the range. A confident wrong number does more damage than an honest range.

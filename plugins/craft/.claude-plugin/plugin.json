@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "house",
-  "displayName": "House Rules",
+  "name": "craft",
+  "displayName": "Craft",
   "description": "Dipendra's authored skills plus deterministic enforcement of the CLAUDE.md working rules: trash over rm, no hand-edited manifests or lockfiles, no attribution trailers, safe git, no sleep, one build at a time.",
   "version": "1.0.0",
   "author": {

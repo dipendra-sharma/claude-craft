@@ -1,7 +1,7 @@
 #!/bin/bash
 set -uo pipefail
 
-[ "${CLAUDE_HOUSE_RULES:-on}" = "off" ] && exit 0
+[ "${CLAUDE_CRAFT_RULES:-on}" = "off" ] && exit 0
 
 input=$(cat)
 path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')
@@ -25,6 +25,6 @@ added=$(git -C "$repo" diff -U0 -- "$path" 2>/dev/null \
 
 [ -n "$added" ] || exit 0
 
-printf 'House rule: zero comments. You added comment lines to %s:\n\n%s\n\nRemove them. If the code needs explaining, fix the naming and structure, or put it in your chat reply or the commit body.\nStill allowed: lint/type pragmas, shebangs, build tags, codegen banners, license headers. Leave pre-existing comments alone.\n' \
+printf 'Craft rule: zero comments. You added comment lines to %s:\n\n%s\n\nRemove them. If the code needs explaining, fix the naming and structure, or put it in your chat reply or the commit body.\nStill allowed: lint/type pragmas, shebangs, build tags, codegen banners, license headers. Leave pre-existing comments alone.\n' \
   "$(basename "$path")" "$added" >&2
 exit 2

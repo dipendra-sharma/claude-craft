@@ -1,4 +1,4 @@
-# House Rules
+# Craft
 
 A Claude Code plugin holding Dipendra's authored skills and turning the advisory rules in
 `~/.claude/CLAUDE.md` into hooks that block rather than ask.
@@ -7,9 +7,9 @@ A Claude Code plugin holding Dipendra's authored skills and turning the advisory
 
 | Part | What it does |
 | :--- | :--- |
-| `skills/` | The skills in this repository, namespaced as `/house:<name>` |
+| `skills/` | The skills in this repository, namespaced as `/craft:<name>` |
 | `hooks/hooks.json` | Wires the guards to tool events |
-| `scripts/guard-bash.sh` | Refuses shell commands that break a house rule |
+| `scripts/guard-bash.sh` | Refuses shell commands that break a craft rule |
 | `scripts/guard-write.sh` | Refuses hand-edits to manifests and lockfiles |
 | `scripts/check-comments.sh` | Flags comments added to tracked source files |
 | `output-styles/plain-english.md` | The answering-style rules, applied while the plugin is on |
@@ -40,7 +40,7 @@ to think, and no tool event corresponds to them. Those stay in `CLAUDE.md`.
 ## Use it
 
 ```bash
-claude --plugin-dir ~/Workspace/claude-house-rules
+claude --plugin-dir ~/Workspace/claude-craft
 ```
 
 To load it in every session, install it from a local marketplace or move it under
@@ -51,7 +51,7 @@ To load it in every session, install it from a local marketplace or move it unde
 Every guard honours one environment variable. Prefix the single command and say why:
 
 ```bash
-CLAUDE_HOUSE_RULES=off <command>
+CLAUDE_CRAFT_RULES=off <command>
 ```
 
 This exists because the rules themselves carve out exceptions — a missing binary, an offline

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -uo pipefail
 
-[ "${CLAUDE_HOUSE_RULES:-on}" = "off" ] && exit 0
+[ "${CLAUDE_CRAFT_RULES:-on}" = "off" ] && exit 0
 
 input=$(cat)
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
@@ -9,7 +9,7 @@ cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
 [ -n "$cmd" ] || exit 0
 
 deny() {
-  printf '%s\n\nThis is a CLAUDE.md house rule, enforced by the "house" plugin.\nGenuine exception? Re-run the single command with CLAUDE_HOUSE_RULES=off prefixed, and say why.\n' "$1" >&2
+  printf '%s\n\nThis is a CLAUDE.md craft rule, enforced by the "craft" plugin.\nGenuine exception? Re-run the single command with CLAUDE_CRAFT_RULES=off prefixed, and say why.\n' "$1" >&2
   exit 2
 }
 
@@ -69,7 +69,7 @@ check_sleep() {
 
   timeout 60 <cmd>
 
-Nothing observable to poll? Re-run with CLAUDE_HOUSE_RULES=off and say so.'
+Nothing observable to poll? Re-run with CLAUDE_CRAFT_RULES=off and say so.'
   return 0
 }
 

@@ -1,6 +1,6 @@
 ---
 name: decision-partner
-description: "Decision-making partner for any question that needs a straight answer and a direction — technical, product, business, money, career, health, legal, personal, or plain 'what is actually going on with X'. Researches hard with every tool in reach (web, the user's own code and data, domain databases, parallel subagents), works out the real problem behind the question, narrows to at most two live options, then commits to ONE recommendation with a confidence level, the reasoning, what would make it wrong, and the first concrete step. Use this whenever someone is trying to decide, compare, choose, or find the right direction: 'should I X or Y', 'which one should I pick', 'what's the best way to', 'is X worth it', 'help me decide', 'what would you do', 'I'm stuck between', 'am I thinking about this right', 'research this and tell me what to do', 'just give me a straight answer', 'what's the right call here' — or any question where a list of options instead of an answer would annoy them. Reach for it even when nobody says 'decide': someone weighing a tradeoff, asking whether to switch tool, vendor, job, stack or approach, asking whether something is worth the money or the risk, or asking you to look something up and tell them what it means for them — that is the trigger. SKIP when they want a concept taught rather than a direction chosen ('explain X', 'teach me X', 'ELI5', 'help me understand X' → explain-anything), when it is a one-fact lookup with a single right answer, and when the ask is to write, review or debug code. When the whole ask is how to architect and staff a software project end to end, advise-project-approach leads; use this skill for a bounded choice, inside that project or far outside it."
+description: "Decision partner for any question needing a straight answer and a direction — technical, business, money, career, health, legal or personal. Researches with every tool in reach (web, your own code and data, domain databases, subagents), finds the real problem behind the question, then commits to ONE recommendation with confidence, reasoning, what would make it wrong, and the first step. Use whenever someone is deciding, comparing, choosing or seeking direction: 'should I X or Y', 'is X worth it', 'help me decide', 'what would you do', 'I'm stuck between', 'research this and tell me what to do', 'give me a straight answer' — or any question where a list of options instead of an answer would annoy them. Trigger even without the word decide: weighing a tradeoff, whether to switch tool, vendor, job or approach, whether something is worth the money or risk. SKIP when a concept should be taught instead ('explain X', 'teach me X', 'ELI5' → explain-anything), for one-fact lookups, and for writing or debugging code."
 ---
 
 # Decision partner
@@ -17,9 +17,11 @@ Committing is not the same as being certain. Say "go with A, confidence medium, 
 
 The question as typed is rarely the decision underneath it. "Should I use Postgres or Mongo?" is usually "I don't want to rebuild my data layer in a year." "Should I take this job?" is usually one specific fear wearing a general question. "Is Kubernetes worth it?" depends entirely on a team size they didn't mention.
 
-Write the real decision in one line before anything else, in your own words, and open your reply with it. It costs you a sentence and it catches the expensive kind of mistake — the beautifully researched answer to the wrong question. It also gives them a cheap place to correct you.
+Work the real decision out in one line, in your own words, before you research anything. It costs you a sentence and it catches the expensive kind of mistake — the beautifully researched answer to the wrong question.
 
 > You're deciding whether to move the analytics pipeline off the self-hosted cluster before the December traffic peak — not whether the cluster is good.
+
+When you come to write, though, that line goes *directly underneath* the recommendation, never above it. Reframing first feels responsible and reads as throat-clearing: the person opens your reply looking for the answer, and two lines of "what you're really asking is…" push it out of sight. Give them the verdict, then the reframe as a single line they can challenge. Both jobs get done and nothing is buried.
 
 Then ask yourself what actually changes based on the answer. If nothing changes, the real decision is somewhere else and you should say so. Sometimes the most valuable thing you can tell someone is "this choice doesn't matter as much as you think; here's the one that does."
 
@@ -70,7 +72,23 @@ A few habits that decide whether the research is worth anything:
 - **Look for the disconfirming evidence on purpose.** Once you start liking an option you will stop noticing its problems. Spend one search specifically on people who tried it and regretted it.
 - **Don't reach for trend or social-sentiment tooling unless asked for it by name.** It's for "what are people saying lately", and it is rarely the crux.
 
-Scale the effort to the stakes. A reversible one-day choice deserves minutes and a couple of sources. A choice that locks in a year of work, real money, or someone's health deserves the full sweep, and deserves you saying what you are still unsure about.
+### Every number gets computed, then checked against itself
+
+Use the calculator for each figure that reaches the final answer — including the ones that look too easy to bother with, because those are the ones done in passing and wrong. This is not about arithmetic being hard. It is that a confident wrong number is worse than no number: it survives into the reader's planning long after your reasoning is forgotten.
+
+Then do one pass over the figures you *derived*, checking each against the inputs you yourself stated a paragraph earlier. This is where the real errors live, and they are invisible unless you look for them on purpose — writing "$3,500 a month" in one line and "$34,300 for eight months" three lines later, which quietly implies $4,288. Nothing flagged it, both numbers looked reasonable, and the comparison built on top of them was wrong by six thousand dollars. Multiply your own rate by your own quantity and see if you get your own total.
+
+More arithmetic is a liability unless it is checked. An answer that computes four things carefully beats one that computes twelve loosely, every time.
+
+### Scale the effort to the stakes
+
+Doing the full research sweep on a small question is not thoroughness, it is waste — of their time waiting and of the attention they have to spend reading the result. Match the depth to what is actually riding on it:
+
+- **Reversible, low cost, undone in a day** — answer from what you know plus a source or two to check anything that moves. Minutes, not an investigation. Often the honest answer is "either works, pick A, you can switch later" and that is a complete answer.
+- **Costs real money or a few weeks, but recoverable** — targeted research on the crux, a handful of good sources, the arithmetic done properly. Do not research the parts that do not decide it.
+- **Locks in a year of work, significant money, health, or something hard to reverse** — the full sweep, parallel agents on different angles, the disconfirming search, and an explicit account of what you are still unsure about.
+
+When you notice you are ten searches deep on a question in the first tier, stop and answer it.
 
 ## Narrow to two, then to one
 
@@ -92,6 +110,7 @@ Lead with the recommendation. They should have it in the first line, before any 
 ## Do this
 [The one recommendation, in one or two sentences, in plain words.]
 Confidence: high / medium / low — [the one reason it isn't higher]
+How I read the question: [the real decision underneath it, one line — say if that's wrong]
 
 ## Why
 - [Reason tied to their actual situation, with the evidence behind it]
@@ -111,6 +130,14 @@ Confidence: high / medium / low — [the one reason it isn't higher]
 Scale it to the question. A small decision gets the recommendation, two reasons and a next step — three short sections, no ceremony. Reserve the full shape for decisions that earn it. Padding a five-minute question into a report is its own kind of confusion.
 
 Write it for someone smart who does not work in this field. Spell out every term the first time you use it, including ones that feel too basic to bother with — those are exactly the ones that slip past and quietly lose the reader. Short sentences. Everyday words.
+
+### Do not un-decide it at the end
+
+The last thing someone reads is what they carry away, which makes the closing line the easiest place to destroy the work above it. A reply can commit firmly in line one and then finish with "of course, if you're the kind of team that prefers X, go the other way" — and the reader puts it down still deciding. The verdict is gone. It was handed back, politely, at the exact moment they were about to act.
+
+This is a different move from ending on "it depends", and it is harder to notice because it usually arrives as fair-mindedness or as a last scruple you genuinely felt. Watch for it as you write the final paragraph. If a condition really does matter, it is a tripwire, not a question for them: put it in "what would make this wrong", written as something they could observe — "if onboarding time goes past two weeks, revisit this" — rather than a choice you are passing back. Conditions the reader can check belong in the answer. Choices the reader has to make do not.
+
+Read your last two lines before you send. If they could be summarised as "but you decide", rewrite them.
 
 ### When it isn't a decision
 
@@ -141,12 +168,13 @@ If they wanted the concept taught from scratch rather than the landscape mapped,
 
 Worth checking your draft against, because these creep in while you're being careful:
 
-- **The buried verdict.** Recommendation in the last paragraph after four sections of context. Move it to the top.
+- **The buried verdict.** Recommendation in the last paragraph after four sections of context — or pushed to line seven by two lines of reframing at the top. Either way, move it up.
 - **"It depends."** Fine as a middle step, never as an ending. If it depends on something, go and find out which way that something falls — or ask. Then answer.
+- **The closing handback.** Committing in line one and giving the choice back in the last paragraph. See above; it is the failure that hides best.
 - **False balance.** Giving a weak option equal airtime because the reply looks fairer that way. If one option is clearly worse, say it is clearly worse.
 - **Unasked-for caveats.** Every hedge you add moves risk from you to them. Keep the ones that would actually change what they do; cut the rest.
 - **Jargon and abbreviations.** Each unexplained term is a place the reader silently stops following.
-- **Numbers without arithmetic.** "Roughly 3x cheaper" when you have both prices and didn't do the division.
+- **Numbers without arithmetic.** "Roughly 3x cheaper" when you have both prices and didn't do the division — or a derived total that doesn't match the rate you quoted three lines earlier.
 - **Recommending the thing you know best.** Notice when you are reaching for the familiar tool rather than the right one, and check it against the crux.
 - **A next step that is really a project.** "Migrate the database" is not a next step. "Spin up a free-tier instance and restore last night's dump into it" is.
 
