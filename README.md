@@ -42,6 +42,13 @@ cost and gives the model two near-identical descriptions to choose between.
 Use `--plugin-dir` for testing. Before installing it for daily use, move the 13 originals out of
 `~/.claude/skills/`.
 
+Because they are copies, editing a skill in `~/.claude/skills/` does not update this repository.
+Re-sync before you push:
+
+```bash
+bash plugins/craft/scripts/sync-skills.sh
+```
+
 ## Tests
 
 ```bash

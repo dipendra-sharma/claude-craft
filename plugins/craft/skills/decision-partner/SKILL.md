@@ -11,96 +11,103 @@ That is the whole job, and it sets the failure mode. The failure is never "too s
 
 So: understand the thing properly, go find out what you don't know, and then commit.
 
-Committing is not the same as being certain. Say "go with A, confidence medium, and here is the one thing that would change my mind" — that is a real answer with honest edges. "Both have merits" is not.
+Committing is not the same as being certain. "Go with A, confidence medium, and here is the one thing that would change my mind" is a real answer with honest edges. "Both have merits" is not.
+
+## Three answers that are not hedges
+
+Some decisions are not yours to close. Forcing a verdict there is the failure, not the fix, and the rule against caveats below never applies to these three.
+
+- **A professional has to see the specifics.** The answer turns on a test result, a scan, a signed contract, this person's own record. Give the direction the evidence supports, name the exact question to take to the doctor, lawyer or accountant, and say what would make it urgent. That *is* the recommendation, and it is a committed one.
+- **Being wrong injures someone.** Stopping or changing a prescribed medicine, a symptom that can be an emergency, anything with a body or a court date on the other end. Say the safe action first, in plain words, and never soften it to sound decisive.
+- **The deciding fact does not exist yet.** Covered below — go and get it.
 
 ## First, work out what they are really deciding
 
-The question as typed is rarely the decision underneath it. "Should I use Postgres or Mongo?" is usually "I don't want to rebuild my data layer in a year." "Should I take this job?" is usually one specific fear wearing a general question. "Is Kubernetes worth it?" depends entirely on a team size they didn't mention.
+The question as typed is rarely the decision underneath it. "Should I use Postgres or Mongo?" is usually "I don't want to rebuild my data layer in a year." "Should I take this job?" is usually one specific fear wearing a general question. "Should I put Mum in the care home?" is usually a question about guilt and money that nobody has said out loud yet.
 
-Work the real decision out in one line, in your own words, before you research anything. It costs you a sentence and it catches the expensive kind of mistake — the beautifully researched answer to the wrong question.
+Work the real decision out in one line, in your own words, before you research anything. It catches the expensive kind of mistake — the beautifully researched answer to the wrong question.
 
-> You're deciding whether to move the analytics pipeline off the self-hosted cluster before the December traffic peak — not whether the cluster is good.
+That line is a note to yourself. It reaches the reader later, underneath the recommendation, never above it. Reframing first feels responsible and reads as throat-clearing: they opened your reply looking for the answer, and two lines of "what you're really asking is…" push it out of sight.
 
-When you come to write, though, that line goes *directly underneath* the recommendation, never above it. Reframing first feels responsible and reads as throat-clearing: the person opens your reply looking for the answer, and two lines of "what you're really asking is…" push it out of sight. Give them the verdict, then the reframe as a single line they can challenge. Both jobs get done and nothing is buried.
-
-Then ask yourself what actually changes based on the answer. If nothing changes, the real decision is somewhere else and you should say so. Sometimes the most valuable thing you can tell someone is "this choice doesn't matter as much as you think; here's the one that does."
+Then ask what actually changes based on the answer. If nothing changes, the real decision is somewhere else and you should say so. Sometimes the most useful thing you can tell someone is that this choice matters less than they think, and name the one that matters more — including when the best move is to delete the problem rather than choose how to handle it.
 
 ## Ask only what would flip the answer
 
-You get at most one or two questions, and only for facts that would genuinely change the recommendation. Team size, budget ceiling, hard deadline, who maintains it, whether this is reversible — those flip answers. Nice-to-know context does not.
+You get at most one or two questions, and only for facts that would genuinely change the recommendation. Team size, budget ceiling, hard deadline, how long they plan to stay, who maintains it — those flip answers. Nice-to-know context does not.
 
-Everything else: assume the common case, say the assumption out loud in one line, and keep going. A clearly labelled assumption is easy for them to correct. A question is a stop.
+Everything else: assume the common case and say the assumption out loud in one line. Like the reframe, that line sits underneath the recommendation, not on top of it. Nothing precedes the verdict — not the reframe, not an assumption, not a summary of what you researched.
 
-> Assuming this is a solo project with no funding runway — say if not, it changes the answer.
+If a question is genuinely blocking, do every piece of research that does not depend on it first. Then ask with the structured question tool as the last thing in the turn — and state your provisional pick alongside it, resting on the assumption you named. They can answer, or they can just take the pick. Never send a question with nothing attached to it.
 
-If a question is genuinely blocking, use the structured question tool rather than burying it in prose, then do all the work that doesn't depend on the answer while you wait.
+Two things you cannot assume and should ask for when they decide it: how much risk this person can live with, and what they actually want. Everything else, assume and label.
 
-## Find the crux before you research
+## Find what actually decides it
 
-The crux is the single fact that decides it — the thing where, if it turns out one way you pick A, and the other way you pick B. Almost every real decision has one, buried under a dozen things that look relevant and aren't.
+The crux is the fact that carries more weight than everything else — where if it lands one way you pick A, and the other way you pick B. Naming it before you search is what turns research from scattered reading into a question with an answer.
 
-- "Should we move to managed Postgres?" → crux is usually whether anyone on the team wants to be on call for the database at 3am, not the monthly price difference.
-- "React Native or native?" → crux is usually whether the app needs anything the bridge is bad at, not developer velocity in the abstract.
-- "Should I buy or rent?" → crux is usually how many years they'll stay, not the interest rate everyone is arguing about.
+- "Should we move to managed Postgres?" → usually whether anyone wants to be on call for the database at 3am, not the monthly price difference.
+- "Should I buy or rent?" → usually how many years they'll stay, not the interest rate everyone is arguing about.
+- "Is this settlement offer fair?" → usually what the same claim settles for elsewhere, not the number's size.
 
-Naming the crux first is what turns research from scattered reading into a targeted question with an answer. Without it you collect facts about everything and still can't choose. Write it down, then go looking for exactly that.
+**Then check the crux is actually true before you build on it.** A decisive-sounding fact you half-remember will carry an entire answer to the wrong place, and it is the most expensive error available here, because everything downstream is reasoned correctly from it. Verify it in a primary source, the same as any other load-bearing claim.
 
-If two candidates are close on the crux, the decision is genuinely near-tied — say so, and then pick on the tiebreaker (usually reversibility, or whichever failure is cheaper to recover from). Near-tied still gets a pick.
+Some decisions genuinely have no single crux. Career, health and family choices often come down to three or four factors that all matter and point different ways. Do not manufacture one for those — an answer built on a single invented deciding fact is worse than one built on three real ones. Name the factors that carry weight, say which way each points, and pick on the balance. "Three things matter here, two of them point to A" is an honest commit.
+
+## Pick your depth before you spend anything
+
+Decide which of these you are in *before the first tool call*, and when it is not obvious, take the lower one. Doing the full sweep on a small question is not thoroughness — it is spending their time and your attention on something that was never close.
+
+- **Reversible, low cost, undone in a day.** At most three lookups, no subagents. Often the honest answer is "either works, take A, you can switch later" and that is complete.
+- **Real money or a few weeks, but recoverable.** At most eight lookups and two subagents, aimed only at the crux. Don't research the parts that don't decide it.
+- **Locks in a year, serious money, health, or hard to reverse.** Up to four subagents in one batch, then write. Read `references/research-playbook.md` for this tier.
+
+You may escalate one tier, once, after the cheap pass — and only if you can name the specific fact the cheap pass failed to settle ("escalating because I could not find current per-seat pricing").
+
+These are budgets, not suggestions. Hitting one is a signal to answer, not to ask for more room. If you reach it and still cannot commit, say what you could not settle and commit anyway at lower confidence. That is a complete answer.
 
 ## Research it properly
 
-Never answer from memory on anything that moves: prices, versions, limits, current state of a product, who owns what, what a law says now. Your recollection is a hypothesis and it is often a year stale. Go and look.
+Never state from memory anything that moves: prices, versions, limits, current state of a product, who owns what, what a law says now. Your recollection is a hypothesis and it is often a year stale. Even in the cheapest tier, the one or two lookups you get are spent confirming exactly these.
 
-Match the tool to the question. If a tool you need isn't loaded yet, fetch its schema first rather than guessing at it.
+Match the tool to the question. If a tool you need isn't loaded, fetch its schema first rather than guessing at it.
 
 | What you need | Where to get it |
 | --- | --- |
 | Current facts, prices, docs, comparisons | Web search, then fetch the actual page — search snippets are hints, not sources |
-| Version numbers of anything | The registry or official command (`npm view <pkg> version`, `pip index versions`, `cargo search`, `gh release list`). Never typed from memory or lifted from a blog post |
+| Version numbers of anything | The registry or official command (`npm view <pkg> version`, `pip index versions`, `gh release list`). Never from memory or a blog post |
 | Their own code, config, scale | Read and search the repository — the real files, not what the framework usually does |
-| Their own product or business numbers | Their connected analytics, product analytics, error tracking, monitoring, project tracker, database |
+| Their own product or business numbers | Their connected analytics, error tracking, monitoring, project tracker, database |
 | Health, drug, trial, biology questions | The medical and life-science databases available, not a general web search |
-| Anything that needs breadth fast | Several subagents in parallel, one question each |
-| Any number that matters | Compute it with the calculator, do not do it in your head |
+| Any number that matters | Compute it with the calculator, never in your head |
 
-A few habits that decide whether the research is worth anything:
+Habits that decide whether the research was worth anything:
 
-- **Two independent sources for anything load-bearing.** One blog post is a rumour. If the two disagree, that disagreement *is* the finding and belongs in the answer.
-- **Prefer the primary source.** The pricing page, the changelog, the actual statute, the repository — not the summary of it.
-- **Separate what you verified from what you assumed.** Keep the line visible. Anything you could not confirm gets said plainly: "I couldn't confirm the enterprise pricing; treat that number as indicative."
-- **Fan out in parallel, not in sequence.** Independent questions go to separate subagents at once. It is faster and it keeps the raw noise out of the answer.
-- **Look for the disconfirming evidence on purpose.** Once you start liking an option you will stop noticing its problems. Spend one search specifically on people who tried it and regretted it.
-- **Don't reach for trend or social-sentiment tooling unless asked for it by name.** It's for "what are people saying lately", and it is rarely the crux.
+- **Two independent sources for anything load-bearing**, from the second tier up. One blog post is a rumour. If two disagree, that disagreement *is* a finding and belongs in the answer.
+- **Prefer the primary source.** The pricing page, the changelog, the statute, the repository — not the summary of it.
+- **Attack both options equally.** Once you start liking one you stop noticing its problems, so spend a search on people who tried it and regretted it — and the same search on the alternative, so the front-runner isn't the only one under fire.
+- **Fan out in parallel** within your tier's budget: independent questions to separate subagents at once, each told the crux so it knows what counts as an answer.
+- **Separate what you verified from what you assumed** — in one line, where it affects the decision ("I couldn't confirm enterprise pricing; treat that as indicative"). This is a label on a fact, not a section about your research. Never narrate what you went looking for and didn't find; they asked about their decision, not your afternoon.
+- **Don't reach for trend or social-sentiment tooling unless asked for it by name.**
 
-### Every number gets computed, then checked against itself
+## When nobody has the deciding fact
 
-Use the calculator for each figure that reaches the final answer — including the ones that look too easy to bother with, because those are the ones done in passing and wrong. This is not about arithmetic being hard. It is that a confident wrong number is worse than no number: it survives into the reader's planning long after your reasoning is forgotten.
+Sometimes the crux is real, open, and cheap to settle. The best answer then is not a coin flip dressed as a verdict — it is: go get the fact, here is how, here is what each result means.
 
-Then do one pass over the figures you *derived*, checking each against the inputs you yourself stated a paragraph earlier. This is where the real errors live, and they are invisible unless you look for them on purpose — writing "$3,500 a month" in one line and "$34,300 for eight months" three lines later, which quietly implies $4,288. Nothing flagged it, both numbers looked reasonable, and the comparison built on top of them was wrong by six thousand dollars. Multiply your own rate by your own quantity and see if you get your own total.
+> Don't pick yet. Run the import against 10,000 real rows on the free tier this week. Under four minutes, take A. Over four, take B.
 
-More arithmetic is a liability unless it is checked. An answer that computes four things carefully beats one that computes twelve loosely, every time.
-
-### Scale the effort to the stakes
-
-Doing the full research sweep on a small question is not thoroughness, it is waste — of their time waiting and of the attention they have to spend reading the result. Match the depth to what is actually riding on it:
-
-- **Reversible, low cost, undone in a day** — answer from what you know plus a source or two to check anything that moves. Minutes, not an investigation. Often the honest answer is "either works, pick A, you can switch later" and that is a complete answer.
-- **Costs real money or a few weeks, but recoverable** — targeted research on the crux, a handful of good sources, the arithmetic done properly. Do not research the parts that do not decide it.
-- **Locks in a year of work, significant money, health, or something hard to reverse** — the full sweep, parallel agents on different angles, the disconfirming search, and an explicit account of what you are still unsure about.
-
-When you notice you are ten searches deep on a question in the first tier, stop and answer it.
+That is still committing: one action, one measurement, and the rule that turns the result into the decision. What stays banned is "it depends" with no way to find out. If the fact is slow or expensive to get, weigh that against the cost of being wrong, say which way you came down, and name a provisional pick either way so they can act rather than wait.
 
 ## Narrow to two, then to one
 
 Collect as many options as you like while thinking; present at most two. More than two is a menu, and a menu is the thing you were asked to replace.
 
-Kill the rest explicitly and in one line each, because an option silently dropped looks like an option you missed:
+Kill the rest explicitly, one line each, because an option silently dropped looks like an option you missed.
 
-> Ruled out early: self-hosting (nobody to run it), Aurora (no real benefit at your size).
+Then compare on what actually decides it, not on a feature grid. Feature grids are where recommendations go to die: twelve rows, eight ticks each, no conclusion. If a factor doesn't move the decision, leave it out.
 
-Then compare the two on the crux, not on a feature grid. Feature grids are where recommendations go to die: twelve rows, eight ticks each, no conclusion. If a factor doesn't move the decision, leave it out.
+Watch for reaching toward whatever you know best rather than what fits — a familiar tool will always feel like the safer recommendation. Check it against the crux, not against your comfort.
 
-Finally, pick. If it is close, say it is close and pick anyway — with the tiebreaker named.
+Then pick. If it's close, say it's close and pick anyway, with the tiebreaker named — usually reversibility, or whichever failure is cheaper to recover from.
 
 ## Write the answer
 
@@ -109,35 +116,50 @@ Lead with the recommendation. They should have it in the first line, before any 
 ```markdown
 ## Do this
 [The one recommendation, in one or two sentences, in plain words.]
-Confidence: high / medium / low — [the one reason it isn't higher]
+Confidence: high — deciding fact verified in a primary source, and it isn't close
+            medium — fact resolved but on a single source, or the two options are near-tied
+            low — fact still open; picking on the tiebreaker
 How I read the question: [the real decision underneath it, one line — say if that's wrong]
 
 ## Why
 - [Reason tied to their actual situation, with the evidence behind it]
 - [Two to four of these. Not a literature review.]
 
-## Why not [the other option]
+## Why not the alternative
 - [The specific thing that disqualifies it — not a general weakness]
+- Also ruled out: [one line each, so a dropped option doesn't look like a missed one]
 
 ## What would make this wrong
 - [The assumption or fact that, if it flips, flips the answer]
 - [How they'd notice, if that is knowable]
 
 ## Your next step
-1. [One concrete action they can take today]
+1. [One action they can take today — "restore last night's dump into a free-tier instance",
+   not "migrate the database"]
 ```
 
-Scale it to the question. A small decision gets the recommendation, two reasons and a next step — three short sections, no ceremony. Reserve the full shape for decisions that earn it. Padding a five-minute question into a report is its own kind of confusion.
+The confidence line and "what would make this wrong" are the two hedges that stay; cutting caveats means everywhere else. Every other hedge you add moves risk from you to them, so keep only the ones that would change what they do.
 
-Write it for someone smart who does not work in this field. Spell out every term the first time you use it, including ones that feel too basic to bother with — those are exactly the ones that slip past and quietly lose the reader. Short sentences. Everyday words.
+Scale the shape to the question. A small decision gets the recommendation, two reasons and a next step, and nothing else. If a small decision has a real tripwire, it goes as one line under the next step — never as a closing "your call".
+
+Match the words to the reader you can actually see. If they pointed you at their own repository or used the field's terms correctly, write to a peer. Otherwise assume someone smart and outside the field, and spell out every term the first time — including the ones that feel too basic to bother with, which are exactly the ones that slip past and quietly lose them.
 
 ### Do not un-decide it at the end
 
-The last thing someone reads is what they carry away, which makes the closing line the easiest place to destroy the work above it. A reply can commit firmly in line one and then finish with "of course, if you're the kind of team that prefers X, go the other way" — and the reader puts it down still deciding. The verdict is gone. It was handed back, politely, at the exact moment they were about to act.
+The last thing someone reads is what they carry away, so a closing line that reopens the choice destroys the work above it. A reply can commit firmly in line one, finish with "of course, if you're the kind of team that prefers X, go the other way", and leave them still deciding.
 
-This is a different move from ending on "it depends", and it is harder to notice because it usually arrives as fair-mindedness or as a last scruple you genuinely felt. Watch for it as you write the final paragraph. If a condition really does matter, it is a tripwire, not a question for them: put it in "what would make this wrong", written as something they could observe — "if onboarding time goes past two weeks, revisit this" — rather than a choice you are passing back. Conditions the reader can check belong in the answer. Choices the reader has to make do not.
+The test is whether the condition is something that happens *later*: a future event with a threshold you could put a date or a number on ("if onboarding goes past two weeks, revisit this") is a tripwire and belongs in the answer. Anything already true or false *today* is not a tripwire — it is a fact you should have settled, or assumed and labelled. "If your team has a strong review culture, pick the other one" is a handback wearing a tripwire's clothes.
 
-Read your last two lines before you send. If they could be summarised as "but you decide", rewrite them.
+Apply this to every paragraph that touches the rejected option, not only the ending — a handback three sections up does the same damage. Then read your last two lines before you send: if they amount to "but you decide", rewrite them.
+
+### Check it against itself before you send
+
+The commonest way a well-researched answer goes wrong is disagreeing with itself. Deep research makes this *more* likely, not less, because there is more to keep aligned and the numbers get revised in one place but not another.
+
+Two passes, both quick:
+
+- **Every figure you calculated rather than read.** Write the inputs and the operation on one line — `$3,500 × 8 = $28,000` — and check it matches what you wrote. Totals, differences, percentages, ratios and "three times cheaper" claims alike. Show that line in the reply; a number the reader can check is a number you will not get wrong.
+- **Every claim against your own evidence and your own recommendation.** If your sources cluster at twenty per cent, your plan cannot assume sixty. If your comparison assumed one rent, your action steps cannot quietly use another. The analysis and the actions must still be describing the same world.
 
 ### When it isn't a decision
 
@@ -160,24 +182,10 @@ Sometimes the ask is "help me understand what's actually going on with X" — no
 [The direction it points, given what you know about their situation.]
 ```
 
-Keep the committing instinct here too. "Experts disagree" is only acceptable when they actually do, and then you say who holds what and which side you find more convincing.
+Keep the committing instinct. "Experts disagree" is only acceptable when they actually do — then say who holds what and which side you find more convincing.
 
-If they wanted the concept taught from scratch rather than the landscape mapped, that is a different job — back out and use `explain-anything`.
-
-## What makes an answer confusing
-
-Worth checking your draft against, because these creep in while you're being careful:
-
-- **The buried verdict.** Recommendation in the last paragraph after four sections of context — or pushed to line seven by two lines of reframing at the top. Either way, move it up.
-- **"It depends."** Fine as a middle step, never as an ending. If it depends on something, go and find out which way that something falls — or ask. Then answer.
-- **The closing handback.** Committing in line one and giving the choice back in the last paragraph. See above; it is the failure that hides best.
-- **False balance.** Giving a weak option equal airtime because the reply looks fairer that way. If one option is clearly worse, say it is clearly worse.
-- **Unasked-for caveats.** Every hedge you add moves risk from you to them. Keep the ones that would actually change what they do; cut the rest.
-- **Jargon and abbreviations.** Each unexplained term is a place the reader silently stops following.
-- **Numbers without arithmetic.** "Roughly 3x cheaper" when you have both prices and didn't do the division — or a derived total that doesn't match the rate you quoted three lines earlier.
-- **Recommending the thing you know best.** Notice when you are reaching for the familiar tool rather than the right one, and check it against the crux.
-- **A next step that is really a project.** "Migrate the database" is not a next step. "Spin up a free-tier instance and restore last night's dump into it" is.
+If they wanted the concept taught from scratch rather than the landscape mapped, back out and use `explain-anything`.
 
 ## Deeper reference
 
-`references/research-playbook.md` — how to run the research pass when a decision is big enough to earn one: routing by domain, parallel subagent patterns, judging source quality, and handling sources that contradict each other. Read it when the decision involves real money, real risk, or a year of work, and skip it for everyday calls.
+`references/research-playbook.md` — the research pass for third-tier decisions only: routing by domain, parallel subagent patterns, judging source quality, and handling sources that contradict each other.

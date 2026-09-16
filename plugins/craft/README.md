@@ -9,11 +9,25 @@ A Claude Code plugin holding Dipendra's authored skills and turning the advisory
 | :--- | :--- |
 | `skills/` | The skills in this repository, namespaced as `/craft:<name>` |
 | `hooks/hooks.json` | Wires the guards to tool events |
-| `scripts/guard-bash.sh` | Refuses shell commands that break a craft rule |
+| `scripts/guard-bash.sh` | Refuses shell commands that break one of the rules |
 | `scripts/guard-write.sh` | Refuses hand-edits to manifests and lockfiles |
 | `scripts/check-comments.sh` | Flags comments added to tracked source files |
+| `scripts/sync-skills.sh` | Re-copies the skills from `~/.claude/skills` and reports what changed |
 | `output-styles/plain-english.md` | The answering-style rules, applied while the plugin is on |
 | `tests/run.sh` | 31 cases covering every guard, both blocked and allowed |
+
+## Keeping the skills current
+
+The skills here are copies. Editing one in `~/.claude/skills` does not update this repository, so the
+published version goes stale silently. Re-sync before you push:
+
+```bash
+bash plugins/craft/scripts/sync-skills.sh
+```
+
+It copies only the skills this plugin already contains, skips the ones that have not changed, and
+names the ones it replaced. It refuses to run outside a git repository, so a replaced file is always
+recoverable. Pass a different source directory as the first argument if your skills live elsewhere.
 
 ## What the hooks block
 

@@ -1,6 +1,6 @@
 # Research playbook
 
-For decisions big enough to earn a real research pass — real money, real risk, hard to reverse, or a year of work riding on it. Everyday calls do not need this.
+For third-tier decisions only — the ones that lock in a year, serious money, health, or are hard to reverse. The first two tiers do not need any of this.
 
 ## Contents
 
@@ -37,7 +37,9 @@ Three or four questions like that, each with a findable answer, beat one big vag
 
 **Legal, tax and regulatory.** Jurisdiction first — an answer that is right in one country is often wrong next door. Primary sources: the statute, the regulator's own guidance, the official form. Date everything, because rules change and stale guidance outranks nothing. Same rule as health: give the direction, name where a professional is genuinely needed.
 
-**Personal and career decisions.** Research still applies — salary data, market conditions, what the role actually involves day to day, what people who took the same step say a year later. What it cannot supply is their risk tolerance and what they want, so ask for those if they are the crux rather than assuming a generic ambitious person.
+**Personal and career decisions.** Research still applies — salary data, market conditions, what the role actually involves day to day, what people who took the same step say a year later. What it cannot supply is their risk tolerance and what they actually want. Ask for those two when they decide it, the way the main file says: research everything else first, then ask last with your provisional pick attached. Never assume a generic ambitious person.
+
+These are also the decisions least likely to have a single crux. Three or four factors that all matter is the normal shape here, not a failure to find the real one.
 
 ## Running subagents in parallel
 
@@ -89,8 +91,6 @@ When a number is a guess, label it a guess and give the range. A confident wrong
 
 ## Knowing when to stop
 
-Stop when new sources stop changing the answer. That is the real signal, and it usually arrives sooner than it feels like it should.
-
-Also stop when the remaining uncertainty is something research cannot settle — their appetite for risk, what they actually want, how the market moves next year. That uncertainty belongs in "what would make this wrong", not in another hour of searching.
+Stop when the remaining uncertainty is something research cannot settle — their appetite for risk, what they actually want, how the market moves next year. That uncertainty belongs in "what would make this wrong", not in another hour of searching.
 
 And stop when the cost of more research exceeds the cost of being wrong. For a reversible choice, a fast decision plus a plan to revisit beats a perfect decision made three days late. Say that out loud when it applies: "this is cheap to undo — pick A, revisit in a month if X happens."
