@@ -24,19 +24,33 @@ Strip every line mentioning Claude, Anthropic, Claude Code, or a generator.
 A commit body holds the explanation and Ref: lines and nothing else.'
 }
 
+disposable='(^|/)(build|target|dist|out|node_modules|\.gradle|\.next|\.nuxt|\.venv|\.dart_tool|__pycache__|DerivedData|Pods|\.pytest_cache|coverage)(/|$)|^/tmp/|^\$\{?TMPDIR'
+
 check_delete() {
-  if has '(^|[;&|`]|&&|\|\|)[[:space:]]*(sudo[[:space:]]+)?rm([[:space:]]|$)'; then
-    has '(^|[[:space:]"'"'"'/])(build|target|dist|out|node_modules|\.gradle|\.next|\.nuxt|\.venv|\.dart_tool|__pycache__|DerivedData|Pods|\.pytest_cache|coverage)(/|[[:space:]]|$)|/tmp/|\$TMPDIR' \
-      || deny 'Blocked: rm. Use trash instead, so the deletion stays undoable.
+  hasi 'shutil\.rmtree|os\.(remove|unlink)\(|fs\.(rm|unlink|rmSync|unlinkSync)\(|pathlib.*\.unlink\(' \
+    && deny 'Blocked: a programmatic delete that bypasses the Trash.
+Shell out to trash <path> instead of shutil.rmtree / os.remove / fs.rm.'
+
+  local segment args arg
+  while IFS= read -r segment; do
+    printf '%s' "$segment" | grep -qE '^[[:space:]]*(sudo[[:space:]]+)?rm([[:space:]]|$)' || continue
+
+    args=$(printf '%s' "$segment" \
+      | sed -E 's/^[[:space:]]*(sudo[[:space:]]+)?rm[[:space:]]*//' \
+      | tr ' ' '\n' | grep -vE '^-|^$')
+
+    while IFS= read -r arg; do
+      [ -n "$arg" ] || continue
+      printf '%s' "$arg" | grep -qE "$disposable" && continue
+      deny "Blocked: rm on $arg. Use trash instead, so the deletion stays undoable.
 
   trash <path>          (/usr/bin/trash, takes several paths at once)
 
 Tracked file? git rm --cached <path> && trash <path>.
-Only build and cache folders the tool owns may be removed outright.'
-  fi
-  hasi 'shutil\.rmtree|os\.(remove|unlink)\(|fs\.(rm|unlink|rmSync|unlinkSync)\(|pathlib.*\.unlink\(' \
-    && deny 'Blocked: a programmatic delete that bypasses the Trash.
-Shell out to trash <path> instead of shutil.rmtree / os.remove / fs.rm.'
+Only build and cache folders the tool owns may be removed outright, and every
+path in the command has to be one of them."
+    done <<< "$args"
+  done <<< "$(printf '%s' "$cmd" | sed -E 's/(\&\&|\|\||;|\||`)/\'$'\n''/g')"
   return 0
 }
 
@@ -83,8 +97,9 @@ Add a flag only when a build actually fails from resource pressure, and say whic
   local tasks
   tasks=$(printf '%s' "$cmd" \
     | sed -E 's/.*gradlew//' \
+    | sed -E 's/[|>&;].*$//' \
     | tr ' ' '\n' \
-    | grep -vE '^(-|$|&&|\|\||;)' \
+    | grep -vE '^-|^$' \
     | grep -cE '^[A-Za-z:]')
   if [ "${tasks:-0}" -gt 1 ]; then
     deny "Blocked: $tasks Gradle tasks in one invocation. This machine throttles when two heavy jobs overlap.
