@@ -16,6 +16,14 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+trash_bin=$(command -v trash || true)
+holding=""
+if [ -z "$trash_bin" ]; then
+  holding="${TMPDIR:-/tmp}/craft-sync-removed-$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$holding"
+  printf 'No trash command on this system. Files this sync removes will be moved to %s instead of deleted.\n\n' "$holding"
+fi
+
 changed=0
 missing=0
 same=0
@@ -35,7 +43,24 @@ for dir in skills/*/; do
     continue
   fi
 
-  rsync -a --delete "$src/" "$dir"
+  removed=$(comm -23 \
+    <(cd "$dir" && find . -type f | sort) \
+    <(cd "$src" && find . -type f | sort))
+
+  if [ -n "$removed" ]; then
+    while IFS= read -r stale; do
+      [ -n "$stale" ] || continue
+      if [ -n "$trash_bin" ]; then
+        "$trash_bin" "$dir/${stale#./}"
+        printf '  trashed  %s/%s\n' "$name" "${stale#./}"
+      else
+        mv "$dir/${stale#./}" "$holding/"
+        printf '  held     %s/%s  (moved to %s)\n' "$name" "${stale#./}" "$holding"
+      fi
+    done <<< "$removed"
+  fi
+
+  cp -R "$src/." "$dir/"
   printf '  synced   %s\n' "$name"
   changed=$((changed + 1))
 done
