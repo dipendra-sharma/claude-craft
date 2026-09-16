@@ -24,6 +24,9 @@ edit_of() { jq -n --arg p "$1" '{tool_name:"Edit",cwd:".",tool_input:{file_path:
 echo "guard-bash.sh — must BLOCK (exit 2)"
 expect 2 guard-bash.sh "$(bash_cmd 'rm -rf /Users/dipendra-sharma/notes')"                 'rm on a real path'
 expect 2 guard-bash.sh "$(bash_cmd 'rm important.txt')"                                    'rm a single file'
+expect 2 guard-bash.sh "$(bash_cmd 'rm -rf ~/Documents/taxes /tmp/scratch')"               'one real path among cache paths'
+expect 2 guard-bash.sh "$(bash_cmd 'rm -rf ~/.ssh && ls node_modules')"                    'cache path in a different segment'
+expect 2 guard-bash.sh "$(bash_cmd 'cd /tmp && rm -rf ~/Documents')"                       'cache path before the rm'
 expect 2 guard-bash.sh "$(bash_cmd 'python -c "import shutil; shutil.rmtree(p)"')"         'shutil.rmtree'
 expect 2 guard-bash.sh "$(bash_cmd 'git commit -m "fix: x
 
@@ -47,6 +50,10 @@ expect 0 guard-bash.sh "$(bash_cmd 'git clone https://github.com/acme/app.git')"
 expect 0 guard-bash.sh "$(bash_cmd 'git rm --cached secret.env')"                          'git rm --cached'
 expect 0 guard-bash.sh "$(bash_cmd 'timeout 60 ./run-server.sh')"                          'timeout instead of sleep'
 expect 0 guard-bash.sh "$(bash_cmd './gradlew assembleDebug')"                             'one Gradle task'
+expect 0 guard-bash.sh "$(bash_cmd './gradlew assembleDebug 2>&1 | tee build.log')"        'one task, piped to a log'
+expect 0 guard-bash.sh "$(bash_cmd './gradlew assembleDebug > out.txt')"                   'one task, redirected'
+expect 0 guard-bash.sh "$(bash_cmd './gradlew :app:assembleDebug --stacktrace')"           'qualified task with a flag'
+expect 0 guard-bash.sh "$(bash_cmd 'rm -rf build/ dist/ node_modules/')"                   'several cache paths'
 expect 0 guard-bash.sh "$(bash_cmd 'npm ci && echo confirm')"                              'words containing rm'
 expect 0 guard-bash.sh "$(bash_cmd 'bun add zod')"                                         'dependency via CLI'
 

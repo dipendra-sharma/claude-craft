@@ -16,6 +16,14 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+trash_bin=$(command -v trash || true)
+holding=""
+if [ -z "$trash_bin" ]; then
+  holding="${TMPDIR:-/tmp}/craft-sync-removed-$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$holding"
+  printf 'No trash command on this system. Files this sync removes will be moved to %s instead of deleted.\n\n' "$holding"
+fi
+
 changed=0
 missing=0
 same=0
@@ -35,7 +43,35 @@ for dir in skills/*/; do
     continue
   fi
 
-  rsync -a --delete "$src/" "$dir"
+  removed=$(comm -23 \
+    <(cd "$dir" && find . -mindepth 1 | sort) \
+    <(cd "$src" && find . -mindepth 1 | sort))
+
+  if [ -n "$removed" ]; then
+    while IFS= read -r stale; do
+      [ -n "$stale" ] || continue
+      rel="${stale#./}"
+      target="$dir$rel"
+      [ -e "$target" ] || continue
+
+      if [ -n "$trash_bin" ]; then
+        if ! "$trash_bin" "$target"; then
+          printf 'Could not trash %s — stopping rather than leaving a half-synced skill.\n' "$target" >&2
+          exit 1
+        fi
+        printf '  trashed  %s/%s\n' "$name" "$rel"
+      else
+        mkdir -p "$holding/$name/$(dirname "$rel")"
+        if ! mv "$target" "$holding/$name/$rel"; then
+          printf 'Could not move %s to %s — stopping rather than leaving a half-synced skill.\n' "$target" "$holding" >&2
+          exit 1
+        fi
+        printf '  held     %s/%s\n' "$name" "$rel"
+      fi
+    done <<< "$removed"
+  fi
+
+  cp -R "$src/." "$dir/"
   printf '  synced   %s\n' "$name"
   changed=$((changed + 1))
 done
