@@ -1,0 +1,33 @@
+{
+  "skill_name": "decision-partner",
+  "evals": [
+    {
+      "id": 0,
+      "name": "flutter-state-management-choice",
+      "prompt": "we're 3 devs on a flutter app thats about 2 years old, roughly 60k lines. state is all over the place with provider + a bunch of setState and some singletons. two of us want to move to riverpod, the third says bloc because he used it at his last job. we ship a release every wednesday and honestly cannot stop for a rewrite. what should we do",
+      "expected_output": "A single committed recommendation (not a menu), with the real crux named (incremental migration path / who maintains it, not framework features), the rejected option dismissed in a line, what would make it wrong, and one concrete first step.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "clevertap-vendor-cost-decision",
+      "prompt": "our clevertap bill has crept up to about $1800/month. we use it for push notifications and in-app messages, roughly 400k monthly active users on android + ios. one of my engineers is pushing hard to rip it out and move to firebase cloud messaging plus building our own in-app message rendering. is it worth it? i need an actual answer not a pros and cons list",
+      "expected_output": "Researched current FCM pricing/limits, computed the real comparison including engineering time, named the crux (what CleverTap does beyond delivery — segmentation, scheduling, analytics), and committed to one answer with confidence.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "agentic-ai-support-queue-direction",
+      "prompt": "everyone at work keeps saying we should be using agentic ai for our support queue. i genuinely cannot tell how much of this is real and how much is hype. we get around 800 tickets a week with 4 support people, mostly password resets, refund requests and 'where is my order'. what is actually going on here and what should i do about it",
+      "expected_output": "Cuts through the hype with a clear picture of what actually works today vs. what does not, then still commits to a direction for this specific team and ticket mix, with a concrete first step. Does not end in 'it depends'.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "buy-vs-rent-personal-finance",
+      "prompt": "my wife and i are going back and forth on this. we have about 18 lakh saved. option 1 is put it into a down payment on a 2bhk in pune, option 2 is keep it in index funds and keep renting. we pay 32k a month rent right now. we'd probably be in pune another 4-5 years, maybe longer if her job goes well. what would you do",
+      "expected_output": "Names the crux (years staying / job uncertainty, not interest rates), does real arithmetic on both paths with stated assumptions, and commits to one recommendation with confidence and a tripwire, in plain language.",
+      "files": []
+    }
+  ]
+}

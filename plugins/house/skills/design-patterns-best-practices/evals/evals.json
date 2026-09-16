@@ -1,0 +1,50 @@
+{
+  "skill_name": "design-patterns-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "notification-service-greenfield-design",
+      "prompt": "I'm about to build the notification service on our backend (Kotlin + Postgres). The channels we actually need: FCM for push, CleverTap for engagement campaigns (which also sends its own push), Verloop for WhatsApp and in-app chat, plus plain SMS and email. Singular needs attribution events fired for some of these too. Every one is a different vendor SDK with its own payload shape, its own retry rules and its own rate limit, and CleverTap and Verloop each have their own idea of what a 'user' is that doesn't match ours. Marketing keeps saying they'll add more channels. Nothing is written yet - help me think through how to structure this before I start.",
+      "expected_output": "A design-time recommendation with two layers: an adapter/anti-corruption boundary per vendor SDK so FCM/CleverTap/Verloop/Singular payload shapes and their conflicting user models stay out of the domain, plus one abstraction per channel for dispatch (in Kotlin a function type or sealed interface with a map of handlers, not a class hierarchy). Evidence gate applied explicitly, a concrete cost named, retry/rate-limit treated as per-channel config. Should NOT reach for Abstract Factory.",
+      "files": [],
+      "assertions": [
+        "Recommends one abstraction per channel (Strategy, a map of handlers, or a sealed interface) instead of one method with a channel conditional",
+        "Recommends wrapping each vendor SDK behind your own narrow interface so vendor payload shapes do not leak into the domain (Adapter / anti-corruption layer)",
+        "Addresses the mismatched user identity across CleverTap and Verloop as a mapping/translation concern at the boundary rather than letting a vendor's user model win",
+        "Applies the evidence gate explicitly - several real channels exist today, so the abstraction is justified now rather than speculative",
+        "Offers the Kotlin-native lighter form (function type, sealed interface, or map of handlers), not only a class-per-channel Strategy hierarchy",
+        "Names a concrete cost of the abstraction it recommends",
+        "Does NOT recommend Abstract Factory (there is no family-consistency invariant in this problem)",
+        "Treats per-channel retry and rate-limit policy as configuration/data separate from the pattern choice"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "remove-speculative-strategy-factory",
+      "prompt": "we have this in our Kotlin codebase and it's been bugging me: there's an interface PricingStrategy, exactly one implementation called StandardPricingStrategy, a PricingStrategyFactory whose only job is to return that one implementation, and a PricingStrategyFactoryProvider object that holds the factory. A senior added it a year ago 'for flexibility' and no second pricing rule has ever appeared. Is this right or not?",
+      "expected_output": "Should conclude the abstraction comes out, citing one implementation with no second variant on the roadmap - speculative abstraction failing the evidence gate. Should propose a concrete smallest diff (collapse to a function or a single class, delete the factory and provider) and name what improves. Should NOT defend keeping the chain for hypothetical future flexibility.",
+      "files": [],
+      "assertions": [
+        "Concludes the abstraction should be removed or collapsed, not kept",
+        "Cites the absence of a second implementation as the reason (speculative abstraction / fails the evidence gate)",
+        "Proposes a concrete smallest diff - delete the provider and factory, collapse to one class or function",
+        "Does NOT justify keeping the chain for hypothetical future flexibility",
+        "Names what concretely improves after removal (fewer files, readable call path, simpler tests)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "state-vs-strategy-order-lifecycle",
+      "prompt": "designing the checkout flow for our app, nothing built yet. an order goes created -> paid -> packed -> shipped -> delivered, and there are rules about which moves are legal (cant ship an order that isnt paid, cant cancel after shipped). each stage also exposes different actions in the ui. we're on kotlin. i keep flip flopping between Strategy and State for this, or whether i should just use a sealed class. which one is it and why",
+      "expected_output": "Should choose State over Strategy and give the disambiguating reason: strategies are interchangeable and mutually ignorant, while here one stage determines which stages are reachable next, so transitions are the whole problem. Should then recommend the Kotlin-native form - a sealed type plus a pure (State, Event) -> State transition function - noting the class-per-state form is unnecessary here, that illegal transitions get rejected in one place, and that the compiler checks exhaustiveness.",
+      "files": [],
+      "assertions": [
+        "Chooses State over Strategy",
+        "Gives the disambiguating reason: one stage determines which stages are legal next, whereas strategies are interchangeable and mutually ignorant",
+        "Recommends the Kotlin sealed type plus a transition function over a class-per-state hierarchy",
+        "States that illegal transitions should be rejected in one place rather than scattered across call sites",
+        "Mentions compiler-checked exhaustiveness as a benefit of the sealed-type form"
+      ]
+    }
+  ]
+}
