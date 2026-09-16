@@ -44,18 +44,29 @@ for dir in skills/*/; do
   fi
 
   removed=$(comm -23 \
-    <(cd "$dir" && find . -type f | sort) \
-    <(cd "$src" && find . -type f | sort))
+    <(cd "$dir" && find . -mindepth 1 | sort) \
+    <(cd "$src" && find . -mindepth 1 | sort))
 
   if [ -n "$removed" ]; then
     while IFS= read -r stale; do
       [ -n "$stale" ] || continue
+      rel="${stale#./}"
+      target="$dir$rel"
+      [ -e "$target" ] || continue
+
       if [ -n "$trash_bin" ]; then
-        "$trash_bin" "$dir/${stale#./}"
-        printf '  trashed  %s/%s\n' "$name" "${stale#./}"
+        if ! "$trash_bin" "$target"; then
+          printf 'Could not trash %s — stopping rather than leaving a half-synced skill.\n' "$target" >&2
+          exit 1
+        fi
+        printf '  trashed  %s/%s\n' "$name" "$rel"
       else
-        mv "$dir/${stale#./}" "$holding/"
-        printf '  held     %s/%s  (moved to %s)\n' "$name" "${stale#./}" "$holding"
+        mkdir -p "$holding/$name/$(dirname "$rel")"
+        if ! mv "$target" "$holding/$name/$rel"; then
+          printf 'Could not move %s to %s — stopping rather than leaving a half-synced skill.\n' "$target" "$holding" >&2
+          exit 1
+        fi
+        printf '  held     %s/%s\n' "$name" "$rel"
       fi
     done <<< "$removed"
   fi
