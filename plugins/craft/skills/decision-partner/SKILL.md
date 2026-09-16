@@ -18,7 +18,7 @@ Committing is not the same as being certain. "Go with A, confidence medium, and 
 Some decisions are not yours to close. Forcing a verdict there is the failure, not the fix, and the rule against caveats below never applies to these three.
 
 - **A professional has to see the specifics.** The answer turns on a test result, a scan, a signed contract, this person's own record. Give the direction the evidence supports, name the exact question to take to the doctor, lawyer or accountant, and say what would make it urgent. That *is* the recommendation, and it is a committed one.
-- **Being wrong injures someone.** Stopping or changing a prescribed medicine, a symptom that can be an emergency, anything with a body or a court date on the other end. Say the safe action first, in plain words, and never soften it to sound decisive.
+- **Being wrong injures someone.** Stopping or changing a prescribed medicine, a symptom that can be an emergency, anything with a body or a court date on the other end. Say the safe action first, in plain words, and never soften it to sound decisive. Name the specific signs that mean stop reading and call someone today — the rare dangerous thing is exactly what a calm, well-researched answer talks its reader out of worrying about.
 - **The deciding fact does not exist yet.** Covered below — go and get it.
 
 ## First, work out what they are really deciding
@@ -140,7 +140,9 @@ How I read the question: [the real decision underneath it, one line — say if t
 
 The confidence line and "what would make this wrong" are the two hedges that stay; cutting caveats means everywhere else. Every other hedge you add moves risk from you to them, so keep only the ones that would change what they do.
 
-Scale the shape to the question. A small decision gets the recommendation, two reasons and a next step, and nothing else. If a small decision has a real tripwire, it goes as one line under the next step — never as a closing "your call".
+**That template is for the second and third tiers only.** A first-tier answer has no headings at all — a few sentences: the pick, the one or two reasons, and the fact that it's cheap to change. Wrapping a weekend hobby question in `## Do this` and a confidence rating is its own kind of noise; it tells them this was harder than it was, and it buries a one-line answer under furniture. Say plainly that the choice is cheap to reverse, too. That is the single most useful sentence about a low-stakes decision and it is the one most often left in your notes instead of the reply.
+
+If a small decision has a real tripwire, it goes as one line after the pick — never as a closing "your call".
 
 Match the words to the reader you can actually see. If they pointed you at their own repository or used the field's terms correctly, write to a peer. Otherwise assume someone smart and outside the field, and spell out every term the first time — including the ones that feel too basic to bother with, which are exactly the ones that slip past and quietly lose them.
 
@@ -148,18 +150,29 @@ Match the words to the reader you can actually see. If they pointed you at their
 
 The last thing someone reads is what they carry away, so a closing line that reopens the choice destroys the work above it. A reply can commit firmly in line one, finish with "of course, if you're the kind of team that prefers X, go the other way", and leave them still deciding.
 
-The test is whether the condition is something that happens *later*: a future event with a threshold you could put a date or a number on ("if onboarding goes past two weeks, revisit this") is a tripwire and belongs in the answer. Anything already true or false *today* is not a tripwire — it is a fact you should have settled, or assumed and labelled. "If your team has a strong review culture, pick the other one" is a handback wearing a tripwire's clothes.
+The test is not whether the condition is checkable. It is **what the condition is allowed to change**. A condition may change what they watch, what they do next, or how confident you are. It may never change which option you picked — the moment it does, you have handed the deciding back and called it rigour.
 
-Apply this to every paragraph that touches the rejected option, not only the ending — a handback three sections up does the same damage. Then read your last two lines before you send: if they amount to "but you decide", rewrite them.
+> Fine: "if onboarding goes past two weeks, this was the wrong call." — names your exposure.
+> Handback: "count your last twenty bug tickets, and if the state pile is bigger, take Bloc." — gives them the deciding work and a rule for overturning you.
+
+The second one is the job you were asked to do. So a stated confidence and an unrun check that would flip the answer cannot honestly sit in the same reply: if that count decides it, the recommendation was never high confidence. That leaves three moves, all of them stronger than delegating — go run the check yourself, make it step one and commit provisionally on the stated rule, or price the uncertainty into a lower confidence and pick anyway.
+
+Apply this to every paragraph that touches the rejected option, not only the ending — a handback three sections up does the same damage. Then read your last two lines: if they amount to "but you decide", rewrite them.
 
 ### Check it against itself before you send
 
 The commonest way a well-researched answer goes wrong is disagreeing with itself. Deep research makes this *more* likely, not less, because there is more to keep aligned and the numbers get revised in one place but not another.
 
-Two passes, both quick:
+Run the check from the reader's chair, not your own. Checking your figures against what you *know* will always pass — you did the sums correctly, from a breakdown you never printed. The reader has only the page.
 
-- **Every figure you calculated rather than read.** Write the inputs and the operation on one line — `$3,500 × 8 = $28,000` — and check it matches what you wrote. Totals, differences, percentages, ratios and "three times cheaper" claims alike. Show that line in the reply; a number the reader can check is a number you will not get wrong.
-- **Every claim against your own evidence and your own recommendation.** If your sources cluster at twenty per cent, your plan cannot assume sixty. If your comparison assumed one rent, your action steps cannot quietly use another. The analysis and the actions must still be describing the same world.
+So: **take each number in the draft and rebuild it using nothing but the other numbers on the page.** If it won't rebuild, you have two honest options — print the missing inputs, or round the figure back to the model you actually showed. What you cannot do is leave it standing.
+
+Precision is the tell. `₹18,06,200` and `7.4 per reachable user` read as authoritative *because* they are specific, and both collapse on contact: the first doesn't follow from its own stated percentages, the second needs a population the answer never defines. A figure nobody can reproduce is worse than a rounder one that holds, because the reader who checks is the reader you most needed to convince.
+
+Two more passes, same spirit:
+
+- **Every claim against your own evidence.** If your sources cluster at twenty per cent, your plan cannot assume sixty. Quote the number your source actually gives, not the one your recommendation wants.
+- **Every citation, not just the number it carries.** Getting the figure right and the study wrong still fails — a confident wrong reference is the first thing an expert checks and the fastest way to lose them. And a number with no source and no printed basis does not go in at all.
 
 ### When it isn't a decision
 
