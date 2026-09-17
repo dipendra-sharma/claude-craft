@@ -165,7 +165,7 @@ The commonest way a well-researched answer goes wrong is disagreeing with itself
 
 Run the check from the reader's chair, not your own. Checking your figures against what you *know* will always pass — you did the sums correctly, from a breakdown you never printed. The reader has only the page.
 
-So: **take each number in the draft and rebuild it using nothing but the other numbers on the page.** If it won't rebuild, you have two honest options — print the missing inputs, or round the figure back to the model you actually showed. What you cannot do is leave it standing.
+So: **take each number in the draft and rebuild it using nothing but the other numbers on the page.** If it won't rebuild, you have two honest options — print the missing inputs, or round the figure back to the model you actually showed. What you cannot do is leave it standing. This goes for the breakdowns too: any parts you show in brackets must add up to the total they explain, because a reader who adds them and gets something else stops trusting every other number you wrote.
 
 Precision is the tell. `₹18,06,200` and `7.4 per reachable user` read as authoritative *because* they are specific, and both collapse on contact: the first doesn't follow from its own stated percentages, the second needs a population the answer never defines. A figure nobody can reproduce is worse than a rounder one that holds, because the reader who checks is the reader you most needed to convince.
 
