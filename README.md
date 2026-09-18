@@ -15,22 +15,25 @@ plugins/craft/                    the plugin — see its own README
 ## Try it without installing
 
 ```bash
-claude --plugin-dir ./plugins/craft
+git clone https://github.com/dipendra-sharma/claude-craft.git
+claude --plugin-dir claude-craft/plugins/craft
 ```
 
 ## Install it
 
 ```bash
-claude plugin marketplace add ~/Workspace/claude-craft
+claude plugin marketplace add dipendra-sharma/claude-craft
 claude plugin install craft@dipendra
 ```
 
-Once this is pushed to a repository, anyone can install it with:
+Or from inside a session:
 
 ```bash
-/plugin marketplace add <owner>/<repo>
+/plugin marketplace add dipendra-sharma/claude-craft
 /plugin install craft@dipendra
 ```
+
+The guards need `jq` (a command-line JSON tool). Without it they stay off and say so once per call.
 
 ## Heads up on duplicates
 
