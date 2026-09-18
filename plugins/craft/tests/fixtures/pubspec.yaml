@@ -1,0 +1,9 @@
+name: fixture
+version: 1.0.0+1
+environment:
+  sdk: ^3.5.0
+dependencies:
+  http: ^1.2.0
+flutter:
+  assets:
+    - assets/

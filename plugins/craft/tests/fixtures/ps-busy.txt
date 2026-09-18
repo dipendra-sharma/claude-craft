@@ -1,0 +1,1 @@
+/usr/bin/java -Xmx64m -Dorg.gradle.appname=gradlew -classpath "" -jar /work/app/gradle/wrapper/gradle-wrapper.jar assembleDebug
