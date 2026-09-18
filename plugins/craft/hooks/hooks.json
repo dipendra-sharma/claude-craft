@@ -18,28 +18,21 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-write.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/check-comments.sh",
+            "timeout": 10
           }
         ]
       },
       {
-        "matcher": "mcp__.*Slack.*__slack_send_message$",
+        "matcher": "mcp__.*[Ss]lack.*__slack_send_message$",
         "hooks": [
           {
             "type": "command",
-            "command": "printf 'Blocked: sending to Slack directly.\\n\\nUse slack_send_message_draft and let Dipendra send it, so the message stays native with no \"Sent using @Claude\" footer.\\nSend directly only when explicitly told to.\\n' >&2; exit 2",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-slack.sh",
             "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/check-comments.sh",
-            "timeout": 15
           }
         ]
       }

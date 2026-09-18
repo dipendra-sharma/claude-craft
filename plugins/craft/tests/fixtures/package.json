@@ -1,0 +1,10 @@
+{
+  "name": "fixture",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}
