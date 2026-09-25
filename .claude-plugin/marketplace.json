@@ -4,7 +4,7 @@
     "name": "Dipendra Sharma",
     "email": "deependrasharma55@gmail.com"
   },
-  "description": "Dipendra's authored skills plus deterministic guardrails for the CLAUDE.md working rules.",
+  "description": "Dipendra's authored best-practice skills and plain-English answering style.",
   "metadata": {
     "pluginRoot": "./plugins"
   },
@@ -13,9 +13,9 @@
       "name": "craft",
       "source": "craft",
       "displayName": "Craft",
-      "description": "Authored best-practice skills, plus hooks that block rm, hand-edited manifests and lockfiles, attribution trailers, unsafe git, sleep, and overlapping builds.",
+      "description": "Thirteen authored best-practice skills covering code, backend, database, testing, design patterns, decisions and explanation, plus a plain-English output style and hooks for proof of work, per-file linting, project facts, package-manager-only dependencies, and git naming.",
       "category": "productivity",
-      "keywords": ["best-practices", "guardrails", "hooks", "code-quality"],
+      "keywords": ["best-practices", "skills", "code-quality", "output-style"],
       "defaultEnabled": true
     }
   ]

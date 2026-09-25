@@ -1,2 +1,0 @@
-/usr/lib/jvm/bin/java org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.10
-/bin/zsh -c cat gradlew && echo GradleDaemon --build

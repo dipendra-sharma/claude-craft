@@ -2,8 +2,9 @@
 
 A Claude Code plugin marketplace with one plugin, `craft`.
 
-`craft` carries Dipendra's authored skills and turns the advisory rules in `~/.claude/CLAUDE.md`
-into hooks that block a tool call rather than ask nicely.
+`craft` carries Dipendra's authored skills and the answering-style rules from `~/.claude/CLAUDE.md`.
+Its hooks make Claude plan and run a check before it calls work done, and keep a few rules that suit
+any developer. See the plugin's own README for the list.
 
 ## Layout
 
@@ -33,7 +34,7 @@ Or from inside a session:
 /plugin install craft@dipendra
 ```
 
-The guards need `jq` (a command-line JSON tool). Without it they stay off and say so once per call.
+The hooks need `jq` (a command-line JSON tool). Without it they stay off and say so.
 
 ## Heads up on duplicates
 
@@ -57,3 +58,4 @@ bash plugins/craft/scripts/sync-skills.sh
 ```bash
 bash plugins/craft/tests/run.sh
 ```
+

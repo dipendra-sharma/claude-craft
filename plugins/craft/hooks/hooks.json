@@ -1,39 +1,41 @@
 {
   "hooks": {
-    "PreToolUse": [
+    "SessionStart": [
       {
-        "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-bash.sh",
-            "timeout": 15
-          }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/project-facts.sh", "timeout": 15 }
         ]
-      },
+      }
+    ],
+    "PreToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-write.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/check-comments.sh",
-            "timeout": 10
-          }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/plan-proof.sh", "timeout": 10 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-manifest.sh", "timeout": 10 }
         ]
       },
       {
-        "matcher": "mcp__.*[Ss]lack.*__slack_send_message$",
+        "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-slack.sh",
-            "timeout": 5
-          }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-manifest.sh", "timeout": 10 },
+          { "type": "command", "if": "Bash(git *)", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/git-format.sh", "timeout": 10 },
+          { "type": "command", "if": "Bash(gh *)", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/git-format.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/lint-edited-file.sh", "timeout": 60 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/verify-before-done.sh", "timeout": 15 }
         ]
       }
     ]

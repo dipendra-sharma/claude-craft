@@ -3,22 +3,15 @@ set -uo pipefail
 source "$(dirname "$0")/../scripts/lib.sh"
 
 if [ $# -eq 0 ]; then
-  printf 'Usage: craft-allow <file path>... | slack\n\nAllows a guarded edit to a file for %s minutes, or one direct Slack send.\nSay why in your reply before running it.\n' "$((CRAFT_ALLOW_TTL_SECONDS / 60))" >&2
+  printf 'Usage: craft-allow <file path>...\n\nAllows hand edits to a guarded manifest or lockfile for 30 minutes.\nSay why in your reply before running it.\n' >&2
   exit 1
 fi
 
-allow_file=$(craft_allow_file)
-now=$(date +%s)
 for target in "$@"; do
   case "$target" in
-    slack) key=slack ;;
-    /*) key=$target ;;
-    *) key="$PWD/${target#./}" ;;
+    /*) path=$target ;;
+    *) path="$PWD/${target#./}" ;;
   esac
-  printf '%s\t%s\n' "$now" "$key" >> "$allow_file"
-  if [ "$key" = slack ]; then
-    printf 'craft: allowed one direct Slack send in the next %s minutes\n' "$((CRAFT_ALLOW_TTL_SECONDS / 60))"
-  else
-    printf 'craft: allowed edits to %s for %s minutes\n' "$key" "$((CRAFT_ALLOW_TTL_SECONDS / 60))"
-  fi
+  printf '%s\t%s\n' "$(date +%s)" "$path" >> "$(craft_allow_file)"
+  printf 'craft: allowed edits to %s for 30 minutes\n' "$path"
 done
