@@ -1,3 +1,0 @@
-fix: tidy
-
-Ref: https://github.com/dipendra-sharma/claude-craft/issues/1
