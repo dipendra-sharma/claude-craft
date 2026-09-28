@@ -4,9 +4,10 @@ cd "$(dirname "$0")/.."
 
 fixtures="$PWD/tests/fixtures"
 project=/work/app
-export CLAUDE_CRAFT_ALLOW_FILE TMPDIR
+export CLAUDE_CRAFT_ALLOW_FILE TMPDIR CLAUDE_CRAFT_TASKS_DIR
 CLAUDE_CRAFT_ALLOW_FILE=$(mktemp "${TMPDIR:-/tmp}/craft-allow-test.XXXXXX")
 TMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/craft-test.XXXXXX")
+CLAUDE_CRAFT_TASKS_DIR=$(mktemp -d "$TMPDIR/tasks.XXXXXX")
 unset CLAUDE_CRAFT_RULES
 
 pass=0
@@ -74,6 +75,92 @@ expect_block none verify-before-done.sh "$(on_stop "$(log "$(prompt u1)" "$(edit
 expect_block none verify-before-done.sh "$(on_stop "$(log "$(prompt u1)" "$(edits $project/src/a.ts)")" 'This is unverified: no runner here.')" 'says it is unverified'
 expect_block none verify-before-done.sh "$(on_stop "$(log "$(prompt u1)" "$(edits $project/src/a.ts)")" 'Done.' true)" 'already nudged once'
 expect_block none verify-before-done.sh "$(on_stop "$(log "$(prompt u1)" "$(edits $project/src/a.ts)" "$(runs 'bun test')" "$(prompt u2)" "$(say 'Here is the answer.')")")" 'edit belonged to an earlier turn'
+
+task() {
+  mkdir -p "$CLAUDE_CRAFT_TASKS_DIR/$1"
+  jq -n --arg id "$2" --arg s "$3" --arg d "${4:-}" '{id:$id,subject:("step " + $id),description:$d,status:$s}' \
+    > "$CLAUDE_CRAFT_TASKS_DIR/$1/$2.json"
+}
+uses() { jq -nc --arg n "$1" '{type:"assistant",message:{content:[{type:"tool_use",name:$n,input:{}}]}}'; }
+stop_in() { jq -n --arg s "$1" --arg d "${2:-/work/app}" --argjson active "${3:-false}" '{session_id:$s,cwd:$d,stop_hook_active:$active}'; }
+
+echo
+echo "task-list-first.sh"
+two_edits=$(log "$(prompt u1)" "$(edits $project/src/a.ts)" "$(edits $project/src/b.ts)")
+one_edit=$(log "$(prompt u1)" "$(edits $project/src/a.ts)")
+listed=$(log "$(prompt u1)" "$(uses TaskCreate)" "$(edits $project/src/a.ts)" "$(edits $project/src/b.ts)")
+task s12 1 pending
+expect 2 task-list-first.sh "$(before_edit "$two_edits" s10 $project/src/c.ts)"            'third file with no todo list'
+expect 0 task-list-first.sh "$(before_edit "$two_edits" s10 $project/src/c.ts)"            'asks only once per prompt'
+expect 0 task-list-first.sh "$(before_edit "$one_edit" s11 $project/src/b.ts)"             'second file'
+expect 0 task-list-first.sh "$(before_edit "$two_edits" s11 $project/src/a.ts)"            'editing a file already touched'
+expect 0 task-list-first.sh "$(before_edit "$listed" s11 $project/src/c.ts)"               'list created this prompt'
+expect 0 task-list-first.sh "$(before_edit "$two_edits" s12 $project/src/c.ts)"            'open list from an earlier prompt'
+expect 0 task-list-first.sh "$(before_edit "$two_edits" s13 $project/src/c.ts agent-1)"    'inside a subagent'
+
+echo
+echo "tasks-before-done.sh"
+task s20 1 completed
+task s20 2 in_progress
+task s21 1 completed
+task s22 1 pending 'Blocked: waiting for the API key from the user'
+task s23 1 pending 'tests for blocked and allowed cases'
+listing=$(mktemp -d "$TMPDIR/listing.XXXXXX")
+printf -- '- [ ] step 1\n' > "$listing/TASKS.md"
+touch -t 202001010000 "$listing/TASKS.md"
+task s24 1 completed
+kept=$(mktemp -d "$TMPDIR/kept.XXXXXX")
+task s25 1 completed
+printf -- '- [x] step 1\n' > "$kept/TASKS.md"
+expect_block block tasks-before-done.sh "$(stop_in s20)"                                    'item still in progress'
+expect_block none tasks-before-done.sh "$(stop_in s21)"                                     'every item completed'
+expect_block none tasks-before-done.sh "$(stop_in s22)"                                     'open item has a Blocked: reason'
+expect_block block tasks-before-done.sh "$(stop_in s23)"                                    'blocked mentioned only in passing'
+expect_block block tasks-before-done.sh "$(stop_in s24 "$listing")"                         'TASKS.md older than the list'
+expect_block none tasks-before-done.sh "$(stop_in s25 "$kept")"                             'TASKS.md saved after the list'
+expect_block none tasks-before-done.sh "$(stop_in s20 /work/app true)"                      'already nudged once'
+expect_block none tasks-before-done.sh "$(stop_in s29)"                                     'no todo list this session'
+
+echo
+echo "tasks-restore.sh"
+restore=$(mktemp -d "$TMPDIR/restore.XXXXXX")
+printf -- '- [x] ship it\n- [ ] write docs\n- [~] add tests\n' > "$restore/TASKS.md"
+context=$(jq -n --arg d "$restore" '{cwd:$d}' | ./scripts/tasks-restore.sh | jq -r '.hookSpecificOutput.additionalContext')
+report yes "$(grep -q '2 open items' <<< "$context" && grep -q '\[~\] add tests' <<< "$context" && echo yes || echo no)" 'hands over the open items'
+report yes "$(grep -q 'ship it' <<< "$context" && echo no || echo yes)"                        'leaves out finished items'
+printf -- '- [x] ship it\n' > "$restore/TASKS.md"
+report "" "$(jq -n --arg d "$restore" '{cwd:$d}' | ./scripts/tasks-restore.sh)"             'silent when every item is done'
+
+git_repo() {
+  local repo
+  repo=$(mktemp -d "$TMPDIR/repo.XXXXXX")
+  git -C "$repo" init -q
+  touch "$repo/TASKS.md" "$repo/a.txt"
+  printf '%s' "$repo"
+}
+commit_all() { git -C "$1" -c user.name=t -c user.email=t@example.com -c commit.gpgsign=false commit -qm "$2"; }
+untracked=$(git_repo)
+staged=$(git_repo); git -C "$staged" add TASKS.md
+clean=$(git_repo); git -C "$clean" add a.txt
+tracked=$(git_repo); git -C "$tracked" add -A; commit_all "$tracked" init; echo edited > "$tracked/TASKS.md"
+excluded=$(git_repo); echo TASKS.md >> "$excluded/.git/info/exclude"
+
+echo
+echo "guard-tasks-file.sh — must BLOCK (exit 2)"
+expect 2 guard-tasks-file.sh "$(bash_cmd 'git add -A' "$untracked")"                       'git add -A picks up TASKS.md'
+expect 2 guard-tasks-file.sh "$(bash_cmd 'git add TASKS.md' "$untracked")"                 'git add TASKS.md'
+expect 2 guard-tasks-file.sh "$(bash_cmd 'git add . && git commit -m "x"' "$untracked")"   'add and commit in one command'
+expect 2 guard-tasks-file.sh "$(bash_cmd "git -C $untracked add -A" /tmp)"                 'git -C into the repository'
+expect 2 guard-tasks-file.sh "$(bash_cmd 'git commit -m "feat: x"' "$staged")"             'commit with TASKS.md staged'
+expect 2 guard-tasks-file.sh "$(bash_cmd 'git commit -am "feat: x"' "$tracked")"           'commit -am with TASKS.md tracked'
+
+echo
+echo "guard-tasks-file.sh — must ALLOW (exit 0)"
+expect 0 guard-tasks-file.sh "$(bash_cmd 'git add a.txt' "$untracked")"                    'staging another file by name'
+expect 0 guard-tasks-file.sh "$(bash_cmd 'git commit -m "feat: x"' "$clean")"              'commit without TASKS.md'
+expect 0 guard-tasks-file.sh "$(bash_cmd 'git commit --amend --no-edit' "$tracked")"       'amend without -a'
+expect 0 guard-tasks-file.sh "$(bash_cmd 'git add -A' "$excluded")"                        'TASKS.md in .git/info/exclude'
+expect 0 guard-tasks-file.sh "$(bash_cmd 'CLAUDE_CRAFT_RULES=off git add TASKS.md' "$untracked")" 'escape hatch prefix'
 
 echo
 echo "lint-edited-file.sh"

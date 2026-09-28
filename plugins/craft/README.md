@@ -14,7 +14,7 @@ developer.
 | `scripts/*.sh` | One script per hook, plus `lib.sh` for the shared helpers |
 | `bin/craft-allow` | Grants a visible, 30-minute exception to the manifest guard |
 | `scripts/sync-skills.sh` | Re-copies the skills from `~/.claude/skills` and reports what changed |
-| `tests/run.sh` | 61 cases covering every hook, both blocked and allowed |
+| `tests/run.sh` | 90 cases covering every hook, both blocked and allowed |
 
 ## The skills
 
@@ -40,12 +40,16 @@ recoverable. Pass a different source directory as the first argument if your ski
 
 | Hook | When | What it does |
 | :--- | :--- | :--- |
-| `plan-proof.sh` | Before the first edit of each prompt | Asks Claude to write `Done when: <result> — checked by: <check>` first. Asks once per prompt, and skips subagents and files outside the project |
+| `plan-proof.sh` | Before the first edit of each prompt | Asks Claude to write `Done when: <result> — checked by: <check>` first. Asks once per prompt, and skips subagents and files outside the project. Also asks for a todo list when the work has 3 or more steps |
+| `task-list-first.sh` | Before editing a third file in one prompt | If there is no todo list, asks Claude to make one (one `TaskCreate` per step) before the next edit. Asks once per prompt, and skips subagents and files outside the project |
 | `verify-before-done.sh` | When Claude stops | If a project file changed after the last check ran, sends Claude back once to run the check it planned, or to say plainly that the change is unverified. Documentation files are exempt |
+| `tasks-before-done.sh` | When Claude stops | If todo items are still open, sends Claude back once to pick the next one. An item whose description has a `Blocked: <reason>` line counts as handled. Also asks Claude to re-save `TASKS.md` when it is older than the todo list |
 | `lint-edited-file.sh` | After each edit | Runs the project's own linter on just that file and shows Claude any problems: ruff, eslint or biome, shellcheck, go vet, dart analyze, ktlint, swiftlint, rubocop, and a JSON syntax check. A missing linter is skipped |
 | `project-facts.sh` | At session start | Tells Claude the branch, the package managers named by the lockfiles, the scripts and make targets, pinned runtime versions, and installed versions |
+| `tasks-restore.sh` | At session start and after a context summary | If `TASKS.md` in the working folder has open lines (`- [ ]` or `- [~]`), hands them to Claude with the steps to rebuild the todo list without duplicates |
 | `guard-manifest.sh` | Before edits and shell commands | Blocks hand edits to lockfiles, creating a manifest by hand instead of with the init command, dependency changes in a manifest, and shell writes (`>`, `tee`, `sed -i`) to either. Scripts, settings and the package's own version stay editable |
 | `git-format.sh` | Before `git` and `gh` commands | Branch names `<type>/<scope>-<description>`, lowercase, hyphenated, 50 characters at most; commit subjects and pull request titles `<type>(<scope>): <description>`. The scope is optional. Merge, revert and fixup subjects pass. Attribution lines are left alone |
+| `guard-tasks-file.sh` | Before `git` commands | Refuses a `git add` or `git commit` that would stage or commit `TASKS.md`, since it is a working file |
 
 Types are `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
 

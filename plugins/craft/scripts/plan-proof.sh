@@ -20,5 +20,5 @@ prompt=$(jq -r '.prompt' <<< "$turn")
 [ "$(cat "$asked" 2>/dev/null)" = "$prompt" ] && exit 0
 printf '%s' "$prompt" > "$asked"
 
-printf 'Plan the proof of work before the first edit. Write one line in your reply:\n\n  Done when: <the observable result> — checked by: <the exact command or read-back>\n\nThen retry the edit. Run that same check before you call the work done.\n' >&2
+printf 'Plan the proof of work before the first edit. Write one line in your reply:\n\n  Done when: <the observable result> — checked by: <the exact command or read-back>\n\nIf the work has 3 or more steps or touches 3 or more files, also create the todo list first, one TaskCreate per step.\nThen retry the edit. Run that same check before you call the work done.\n' >&2
 exit 2

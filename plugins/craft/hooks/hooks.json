@@ -3,7 +3,8 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/project-facts.sh", "timeout": 15 }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/project-facts.sh", "timeout": 15 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/tasks-restore.sh", "timeout": 10 }
         ]
       }
     ],
@@ -12,6 +13,7 @@
         "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/plan-proof.sh", "timeout": 10 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/task-list-first.sh", "timeout": 10 },
           { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-manifest.sh", "timeout": 10 }
         ]
       },
@@ -20,7 +22,8 @@
         "hooks": [
           { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-manifest.sh", "timeout": 10 },
           { "type": "command", "if": "Bash(git *)", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/git-format.sh", "timeout": 10 },
-          { "type": "command", "if": "Bash(gh *)", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/git-format.sh", "timeout": 10 }
+          { "type": "command", "if": "Bash(gh *)", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/git-format.sh", "timeout": 10 },
+          { "type": "command", "if": "Bash(git *)", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/guard-tasks-file.sh", "timeout": 10 }
         ]
       }
     ],
@@ -35,7 +38,8 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/verify-before-done.sh", "timeout": 15 }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/verify-before-done.sh", "timeout": 15 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/tasks-before-done.sh", "timeout": 10 }
         ]
       }
     ]

@@ -3,7 +3,7 @@
 A Claude Code plugin marketplace with one plugin, `craft`.
 
 `craft` carries Dipendra's authored skills and the answering-style rules from `~/.claude/CLAUDE.md`.
-Its hooks make Claude plan and run a check before it calls work done, and keep a few rules that suit
+Its hooks make Claude keep a todo list, plan and run a check before it calls work done, and keep a few rules that suit
 any developer. See the plugin's own README for the list.
 
 ## Layout

@@ -10,7 +10,7 @@
       "name": "craft",
       "source": "./plugins/craft",
       "displayName": "Craft",
-      "description": "Fifteen authored best-practice skills covering code, backend, database, dashboards, testing, render performance, design patterns, decisions and explanation, plus a plain-English output style and hooks for proof of work, per-file linting, project facts, package-manager-only dependencies, and git naming.",
+      "description": "Fifteen authored best-practice skills covering code, backend, database, dashboards, testing, render performance, design patterns, decisions and explanation, plus a plain-English output style and hooks for todo lists, proof of work, per-file linting, project facts, package-manager-only dependencies, and git naming.",
       "category": "productivity",
       "keywords": ["best-practices", "skills", "code-quality", "output-style"],
       "defaultEnabled": true

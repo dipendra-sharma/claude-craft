@@ -25,3 +25,16 @@ current_turn() {
         blocks: [.[(($start // -1) + 1):][] | select(.type == "assistant") | .message.content[]?] }
   ' "$1"
 }
+
+tasks_dir() { printf '%s/%s' "${CLAUDE_CRAFT_TASKS_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/tasks}" "$1"; }
+
+open_tasks() {
+  local dir
+  dir=$(tasks_dir "$1")
+  if [[ ! "$1" =~ ^[A-Za-z0-9_-]+$ ]] || ! compgen -G "$dir/*.json" >/dev/null; then
+    printf '[]'
+    return
+  fi
+  jq -s '[.[] | select(.status == "pending" or .status == "in_progress")] | sort_by(.id | tonumber? // 0)' "$dir"/*.json 2>/dev/null \
+    || printf '[]'
+}
