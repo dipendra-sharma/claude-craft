@@ -1,6 +1,6 @@
 ---
 name: ui-state-best-practices
-description: "Declarative frontend state baseline — UI=f(state), minimal facts, illegal states unrepresentable, single-owner hoisting, unidirectional data flow, precise re-render, server-vs-client cache, state machines, effects-as-sync, race safety. Load before writing or reviewing any state-driven UI in Jetpack Compose, React, SwiftUI, Flutter, Svelte, Solid or Vue. Triggers: components holding or passing state (useState/useReducer/useEffect, mutableStateOf/remember, @State/@Observable, StatefulWidget/setState/Riverpod/Bloc, $state/$derived, createSignal, ref/computed); or 'state management', 're-renders too much', 'loading/error flags', 'lift state up', 'UI out of sync', 'fetch and display data'. Owns state SHAPE and DATA FLOW within a screen; opinionated-frontend-architecture owns state shared across screens. Skip for non-UI code, template-only markup, and static content."
+description: "Declarative frontend state baseline — UI=f(state), minimal facts, illegal states unrepresentable, single-owner hoisting, unidirectional data flow, which facts trigger a redraw, server-vs-client cache, state machines, effects-as-sync, race safety. Load before writing or reviewing any state-driven UI in Jetpack Compose, React, SwiftUI, Flutter, Svelte, Solid or Vue. Triggers: components holding or passing state (useState/useReducer/useEffect, mutableStateOf/remember, @State/@Observable, StatefulWidget/setState/Riverpod/Bloc, $state/$derived, createSignal, ref/computed); or 'state management', 'loading/error flags', 'lift state up', 'UI out of sync', 'fetch and display data'. Owns state SHAPE and DATA FLOW within a screen; opinionated-frontend-architecture owns state shared across screens; render-performance-best-practices owns frame cost (jank, rebuild counts, lazy lists, work in build). Skip for non-UI code, template-only markup, and static content."
 ---
 
 # Declarative State Coach
@@ -9,7 +9,7 @@ You are a polyglot coach for state in declarative UIs. The governing law is **UI
 
 Examples below use a neutral declarative pseudo-syntax (React/JSX-like) for readability. **Translate every example into the user's actual framework** using the primitive map below — the principles are identical across all of them.
 
-**Scope — works with `coding-best-practices`, doesn't replace it.** This skill owns state *shape*, *data flow* and *render cost*: what facts exist, who owns them, how they flow, what it costs to redraw them (Rule 5), and making illegal states impossible. But the state code itself — the notifiers, reducers, stores, view-models, and the functions that read, derive, and mutate state — is still ordinary code, and must obey `coding-best-practices` for general quality (naming, SRP, guard clauses, error handling, immutability, testability). Design the state here; write the code well there; **apply both whenever you touch state.**
+**Scope — works with `coding-best-practices`, doesn't replace it.** This skill owns state *shape* and *data flow*: what facts exist, who owns them, how they flow, and making illegal states impossible. What a redraw *costs* — work in build, collections in build, lazy lists, paint, animation, frame budget — belongs to `render-performance-best-practices`; Rule 5 keeps only the correctness side (keys) and the memoize-on-evidence stance. But the state code itself — the notifiers, reducers, stores, view-models, and the functions that read, derive, and mutate state — is still ordinary code, and must obey `coding-best-practices` for general quality (naming, SRP, guard clauses, error handling, immutability, testability). Design the state here; write the code well there; **apply both whenever you touch state.**
 
 ## Skill chaining
 
@@ -18,6 +18,7 @@ These compose — invoke the ones that apply with the Skill tool rather than rep
 | Invoke | When | It owns |
 |---|---|---|
 | `opinionated-frontend-architecture` | the fact is shared beyond one screen, or you're placing it in a store, service, view-model or repository | *where* state lives across the app, session lifetime, sign-out and account switching. This skill shapes a fact; that one places it |
+| `render-performance-best-practices` | the question is frame cost — jank, dropped frames, slow scroll, rebuild/recomposition counts, a list or animation on a hot path, a 60–240 fps target | the frame budget: zero calculation in build, collections in build, rebuild scope, lazy/recycled lists, layout, paint, animation, profiling |
 | `coding-best-practices` | always, on any code you write or change | naming, structure, error handling, immutability, testability |
 | `database-best-practices` | the state is a cache of server data and the question turns to what that data *is* — its shape, identity or cost to fetch | the data model behind the API you're consuming |
 | `testing-best-practices` | writing or fixing tests for state logic | test level and shape, doubles, determinism |
@@ -204,7 +205,7 @@ One direction means that when something is wrong you always know which way to lo
 
 ### Rule 5: Recompute only what depends on what changed
 
-Work done directly in render runs on every redraw, including unrelated ones. Give every list row a stable identity, isolate a hot field so its rapid updates don't drag the whole subtree, and memoize only where you've measured a cost.
+Work done directly in render runs on every redraw, including unrelated ones. Give every list row a stable identity, isolate a hot field so its rapid updates don't drag the whole subtree, and memoize only where you've measured a cost. For anything beyond that — frame budgets, lazy and recycled lists, moving work out of build, paint and animation cost, profiling — load `render-performance-best-practices`; this rule stays the state-side summary.
 
 **Bad:**
 ```

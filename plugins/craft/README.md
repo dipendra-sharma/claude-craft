@@ -8,7 +8,7 @@ developer.
 
 | Part | What it does |
 | :--- | :--- |
-| `skills/` | The 13 skills in this repository, namespaced as `/craft:<name>` |
+| `skills/` | The 15 skills in this repository, namespaced as `/craft:<name>` |
 | `output-styles/plain-english.md` | The answering-style rules, applied while the plugin is on |
 | `hooks/hooks.json` | Wires the hooks below to their events |
 | `scripts/*.sh` | One script per hook, plus `lib.sh` for the shared helpers |
@@ -18,10 +18,10 @@ developer.
 
 ## The skills
 
-`backend-best-practices`, `calculator`, `coding-best-practices`, `database-best-practices`,
+`backend-best-practices`, `calculator`, `coding-best-practices`, `dashboard-best-practices`, `database-best-practices`,
 `decision-partner`, `design-patterns-best-practices`, `explain-anything`, `firebase-crash-fix`,
-`github-bug-report`, `minimize-diff`, `product-spec`, `testing-best-practices`,
-`ui-state-best-practices`.
+`github-bug-report`, `minimize-diff`, `product-spec`, `render-performance-best-practices`,
+`testing-best-practices`, `ui-state-best-practices`.
 
 ## Keeping the skills current
 

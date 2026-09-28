@@ -15,7 +15,8 @@ This skill is the baseline on all code work, which makes it the routing hub for 
 |---|---|---|
 | `backend-best-practices` | the code talks to a DB, queue, or another service, or serves requests | query safety, transactions, idempotency, timeouts, authorization, failure under load |
 | `database-best-practices` | the question is what the data should *be* — datasets, grain, keys, constraints, which indexes — **or anything about a query: how it's written, why it's slow, what it costs** | the data model, its access paths, and the queries against it |
-| `ui-state-best-practices` | state inside one screen — its shape, derivation, effects, and what it costs to redraw | state shape, data flow and render cost within a screen |
+| `ui-state-best-practices` | state inside one screen — its shape, derivation, effects, and which facts trigger a redraw | state shape and data flow within a screen |
+| `render-performance-best-practices` | UI code on a hot path — a list, grid, feed, chart, animation or scroll effect — or any report of jank, dropped frames, slow scrolling, too many rebuilds/recompositions/re-renders, or a 60–240 fps target | the frame budget: zero calculation in build, collections in build, rebuild scope, lazy/recycled lists, layout and paint cost, compositor animation, image decode size, main-thread offload, high-refresh opt-in, profiling |
 | `opinionated-frontend-architecture` | a fact is shared beyond one screen — a store, view-model, provider, context or repository; sign-out; "two screens show different values" | *where* a fact lives across the app, and session lifetime |
 | `testing-best-practices` | writing, fixing, or reviewing a test | test level and shape, doubles, determinism |
 | `minimize-diff` | the change has outgrown review, or wants splitting into a reviewable stack | diff size and commit/PR splitting — not the quality of what's kept, which stays here |
@@ -186,7 +187,7 @@ Two rules that complement, not contradict: **choose the right algorithm, data st
 **Bad:** `for (x of items) if (seen.includes(x)) …` — a linear scan inside a loop, O(n²) as `items` grows.
 **Good:** a `Set` for membership, O(1) per check.
 - Data structure first. Network/IO dominates — kill N+1 round-trips, paginate, stream, cache idempotent reads, fetch only needed fields (the datastore side of this is `backend-best-practices` and `database-best-practices`). Stream/lazy over materializing a collection you scan once. Don't trade clarity for a micro-gain.
-- **Target budgets** (adapt to the platform; treat as defaults, not hard SLAs): prefer O(1) > O(log n) > O(n), avoid O(n²)+; **rendering** — one display refresh interval, ~16.7ms at 60Hz, ~11.1ms at 90Hz, ~8.3ms at 120Hz, so budget to the device's real rate and keep work off the render path; **network APIs** — p50 < 100ms, p99 < 500ms. Measure against these before optimizing further.
+- **Target budgets** (adapt to the platform; treat as defaults, not hard SLAs): prefer O(1) > O(log n) > O(n), avoid O(n²)+; **rendering** — one display refresh interval, ~16.7ms at 60Hz, ~11.1ms at 90Hz, ~8.3ms at 120Hz, so budget to the device's real rate and keep work off the render path (the UI side of this is `render-performance-best-practices`); **network APIs** — p50 < 100ms, p99 < 500ms. Measure against these before optimizing further.
 
 ### 16. Security — never trust input, never expose secrets
 Most vulnerabilities are the same few mistakes repeated. Three habits prevent the bulk: authorize every access, treat every value crossing a trust boundary as hostile, and keep secrets out of the source.
@@ -209,9 +210,9 @@ Express reusable UI as something the framework can identify, diff, and skip. Wha
 - **Flutter** — a `Widget` subclass, not a `_buildFoo()` helper method. The class gets its own `Element` and can be `const`.
 - **React** — render it as `<Thing />`, not `Thing()`. Only an element gets a fiber and can bail out under `memo`; a direct call inlines into the parent's fiber.
 - **SwiftUI** — a `View` struct.
-- **Jetpack Compose** — an ordinary `@Composable fun` **already is** the unit; the compiler gives it a restart group and skips it when its arguments are stable and unchanged. Don't wrap Compose UI in a class. The work here is *not* introducing a type — and keeping parameters stable and deferring reads is render cost, which belongs to `ui-state-best-practices`.
+- **Jetpack Compose** — an ordinary `@Composable fun` **already is** the unit; the compiler gives it a restart group and skips it when its arguments are stable and unchanged. Don't wrap Compose UI in a class. The work here is *not* introducing a type — and keeping parameters stable and deferring reads is render cost, which belongs to `render-performance-best-practices`.
 
-This principle owns **component identity only** — the unit the framework can diff and skip. *Render cost* (stable keys, memoization thresholds, strong skipping, deferring reads) and *state shape and data flow* (single owner, unidirectional, `UI = f(state)`) both belong to `ui-state-best-practices`, which in turn defers general code quality back here. Load it rather than restating its material.
+This principle owns **component identity only** — the unit the framework can diff and skip. *Render cost* (work in build, collections in build, memoization thresholds, strong skipping, deferring reads, lazy lists, paint and animation cost) belongs to `render-performance-best-practices`; *state shape and data flow* (single owner, unidirectional, `UI = f(state)`, stable keys as row identity) belongs to `ui-state-best-practices`. Both defer general code quality back here. Load the one the work reaches rather than restating its material.
 
 ---
 

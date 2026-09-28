@@ -1,0 +1,174 @@
+{
+  "skill_name": "render-performance-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Our Flutter news feed stutters badly on a Pixel 8 (120Hz) and on iPhone 15 Pro, especially when scrolling fast. About 800 articles load at once. Here's the screen:\n\n```dart\nclass FeedScreen extends StatefulWidget {\n  final List<Article> articles;\n  final List<Author> authors;\n  const FeedScreen({super.key, required this.articles, required this.authors});\n  @override\n  State<FeedScreen> createState() => _FeedScreenState();\n}\n\nclass _FeedScreenState extends State<FeedScreen> {\n  final _scroll = ScrollController();\n  double _offset = 0;\n\n  @override\n  void initState() {\n    super.initState();\n    _scroll.addListener(() => setState(() => _offset = _scroll.offset));\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    final sorted = widget.articles.where((a) => !a.hidden).toList()\n      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));\n    return Scaffold(\n      body: SingleChildScrollView(\n        controller: _scroll,\n        child: Column(children: [\n          Opacity(opacity: (1 - _offset / 200).clamp(0, 1), child: HeroBanner()),\n          ListView(\n            shrinkWrap: true,\n            physics: const NeverScrollableScrollPhysics(),\n            children: sorted.map((a) {\n              final author = widget.authors.firstWhere((u) => u.id == a.authorId);\n              return ListTile(\n                leading: ClipRRect(\n                  borderRadius: BorderRadius.circular(8),\n                  clipBehavior: Clip.antiAliasWithSaveLayer,\n                  child: Image.network(a.imageUrl, width: 56, height: 56, fit: BoxFit.cover),\n                ),\n                title: Text(a.title),\n                subtitle: Text('${author.name} \u00b7 ${DateFormat('dd MMM yyyy, HH:mm').format(a.publishedAt)}'),\n              );\n            }).toList(),\n          ),\n        ]),\n      ),\n    );\n  }\n}\n```\n\nImages are full-size 3000px photos from our CMS. Fix it so it holds 120fps. Save the fixed Dart file as feed_screen.dart and a short explanation as notes.md.",
+      "expected_output": "Rewritten screen using CustomScrollView + slivers with lazy builder, precomputed sorted list and author map outside build, static DateFormat, no page-level setState on scroll, fade without Opacity saveLayer rebuild, no antiAliasWithSaveLayer, cacheWidth-sized images, plus iOS ProMotion Info.plist key and profile-mode verification.",
+      "files": [],
+      "assertions": [
+        "Replaces SingleChildScrollView+Column+shrinkWrap ListView with a single lazy scroll view (CustomScrollView with SliverList.builder or ListView.builder)",
+        "Moves the filter+sort out of build (state layer, initState/didUpdateWidget, or cached derived list)",
+        "Replaces authors.firstWhere per row with a Map lookup built once",
+        "Hoists DateFormat to a static/top-level final (not created per row)",
+        "Removes the page-level setState on every scroll offset change",
+        "Replaces Opacity-driven fade with a non-rebuilding approach (FadeTransition/AnimatedBuilder on leaf, SliverAppBar, or similar) and explains saveLayer/offscreen cost",
+        "Removes Clip.antiAliasWithSaveLayer (uses default antiAlias or decoration borderRadius)",
+        "Decodes images at display size (cacheWidth/cacheHeight or ResizeImage sized by devicePixelRatio)",
+        "Mentions the iOS ProMotion Info.plist key CADisableMinimumFrameDurationOnPhone (check present) or Android 60Hz cap",
+        "Tells how to verify in profile mode (flutter run --profile / DevTools frame chart) against the ~8.3ms 120Hz budget",
+        "Adds stable keys (ValueKey(id)) or itemExtent/prototype sizing for rows",
+        "Covers BOTH platforms' 120 Hz gates: iOS CADisableMinimumFrameDurationOnPhone (check present) AND the Android/Pixel display-mode issue (e.g. flutter_displaymode or verifying the rate)",
+        "Gives a numeric frame target for 120 Hz (about 8.3 ms, or p90/p99 frame time) measured in profile mode",
+        "Does not claim FadeTransition/AnimatedOpacity removes the offscreen/opacity layer cost (or correctly says the saving is the rebuild/repaint)",
+        "Preserves visible behaviour (no silent truncation of titles/subtitles, header still fades) or explicitly calls out any change"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Jetpack Compose chat screen janks when new messages arrive and while scrolling (Galaxy S24, 120Hz). Layout Inspector shows every MessageRow recomposing on every scroll frame. Code:\n\n```kotlin\n@Composable\nfun ChatScreen(vm: ChatViewModel) {\n    val state by vm.state.collectAsStateWithLifecycle()\n    val listState = rememberLazyListState()\n    val sorted = state.messages.sortedBy { it.sentAt }\n    val headerAlpha = 1f - (listState.firstVisibleItemScrollOffset / 300f).coerceIn(0f, 1f)\n    Column {\n        ChatHeader(title = state.title, modifier = Modifier.alpha(headerAlpha))\n        LazyColumn(state = listState) {\n            items(sorted) { msg ->\n                val sender = state.users.first { it.id == msg.senderId }\n                MessageRow(\n                    text = msg.text,\n                    sender = sender.name,\n                    time = SimpleDateFormat(\"HH:mm\", Locale.getDefault()).format(Date(msg.sentAt)),\n                    reactions = msg.reactions.filter { it.count > 0 },\n                    selectedId = state.selectedId,\n                    id = msg.id,\n                )\n            }\n        }\n    }\n}\n```\n\nThere are around 3,000 messages and ~200 users per chat. Tell me what's wrong and give me fixed code (ViewModel side too if needed). Save as review.md.",
+      "expected_output": "Moves sorting, user lookup map, time formatting and reaction filtering into ViewModel/UiState; keys + contentType on items; header alpha via graphicsLayer lambda (deferred read) or derivedStateOf; per-row isSelected boolean instead of selectedId; explains strong skipping and new list instances; release build + baseline profile + Macrobenchmark/Layout Inspector to verify.",
+      "files": [],
+      "assertions": [
+        "Moves sortedBy out of the composable (ViewModel/UiState or remember keyed on messages)",
+        "Replaces state.users.first per row with a map by id built once",
+        "Hoists SimpleDateFormat/DateTimeFormatter out of item content (precomputed time string or top-level formatter)",
+        "Moves reactions.filter out of item content (precomputed in UiState)",
+        "Adds key = { it.id } to items",
+        "Adds contentType for mixed rows or explains it",
+        "Replaces Modifier.alpha(headerAlpha) computed in composition with a deferred read (graphicsLayer lambda) or derivedStateOf, explaining scroll-frame recomposition",
+        "Passes per-row isSelected Boolean instead of selectedId",
+        "Explains strong skipping / new list instances (unstable params compared by instance) as why rows never skip",
+        "Recommends verifying with a release/non-debuggable build, baseline profile, and Layout Inspector counts or Macrobenchmark FrameTimingMetric",
+        "Uses a concrete pass/fail gate: Macrobenchmark FrameTimingMetric with frameOverrunMs (or frame duration percentiles) on a release build",
+        "Addresses stability of the message/reaction model types (immutable collections, @Immutable/@Stable, or stability configuration) \u2014 not only moving code",
+        "Flags that users.first { } throws NoSuchElementException when a sender is missing, and handles it",
+        "Preserves header behaviour or explicitly calls out any behaviour change"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I'm building a crypto price table in React 19 (Vite, no React Compiler yet). 5,000 rows, prices stream over a websocket ~10 updates/sec per symbol. Traders use 144Hz and 240Hz monitors and say scrolling and the flashing price cells feel choppy. Simplified code:\n\n```jsx\nconst PricesContext = createContext();\n\nexport function App() {\n  const [prices, setPrices] = useState({});\n  useEffect(() => {\n    const ws = new WebSocket(URL);\n    ws.onmessage = (e) => { const t = JSON.parse(e.data); setPrices(p => ({ ...p, [t.symbol]: t })); };\n    return () => ws.close();\n  }, []);\n  return (\n    <PricesContext.Provider value={{ prices, setPrices }}>\n      <Table />\n    </PricesContext.Provider>\n  );\n}\n\nfunction Table() {\n  const { prices } = useContext(PricesContext);\n  const [sortKey, setSortKey] = useState('volume');\n  const rows = Object.values(prices).sort((a, b) => b[sortKey] - a[sortKey]);\n  const Row = ({ r }) => (\n    <tr style={{ background: r.change > 0 ? 'green' : 'red', transition: 'background 300ms' }}>\n      <td>{r.symbol}</td><td>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(r.price)}</td>\n    </tr>\n  );\n  useEffect(() => {\n    const onScroll = () => {\n      document.querySelectorAll('tr').forEach(tr => {\n        tr.style.opacity = tr.getBoundingClientRect().top < 80 ? 0.5 : 1;\n      });\n    };\n    window.addEventListener('scroll', onScroll);\n    return () => window.removeEventListener('scroll', onScroll);\n  }, []);\n  return <table><tbody>{rows.map((r, i) => <Row key={i} r={r} />)}</tbody></table>;\n}\n```\n\nHow do I make this smooth at 240Hz? Save your answer as answer.md with fixed code.",
+      "expected_output": "Batches websocket updates per animation frame, moves store out of context to selector-based store, virtualizes rows, stable keys, Row defined at module scope and memoized, static Intl formatter, sort memoized/moved, scroll handler layout thrash removed (IntersectionObserver or CSS), animate opacity/transform instead of background, measurement with DevTools and budget 4.2ms.",
+      "files": [],
+      "assertions": [
+        "Batches websocket updates to at most once per animation frame (rAF buffer) instead of setState per message",
+        "Moves prices out of a single context value to a selector-based store or per-row subscription so one tick doesn't re-render the table",
+        "Virtualizes the 5,000 rows (TanStack Virtual, react-window, react-virtuoso)",
+        "Replaces index keys with stable symbol keys",
+        "Moves the Row component definition out of Table (module scope) and memoizes it",
+        "Hoists Intl.NumberFormat to module scope",
+        "Stops re-sorting all rows on every tick (sort order maintained/memoized/throttled)",
+        "Removes getBoundingClientRect loop in scroll handler (layout thrash) in favour of IntersectionObserver/CSS/sticky header",
+        "Replaces background-color transition flash with opacity/transform-based flash (compositor-only)",
+        "States the 240Hz budget ~4.2ms and advises measuring with DevTools Performance (throttling) or LoAF",
+        "Names a measuring method for 240 Hz: DevTools Performance with CPU throttling, or the Long Animation Frames API",
+        "Uses a virtualization library (TanStack Virtual, react-window, react-virtuoso) rather than a hand-rolled window, or justifies the hand-rolled one",
+        "Calls out any visual behaviour change introduced by the fix (e.g. how the top-80px dimming now behaves) rather than changing it silently"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "React Native 0.81 app (New Architecture, Expo SDK 54). Our product grid drops to ~35 fps on a mid-range Android and feels laggy on iPhone 15 Pro. Code:\n\n```tsx\nexport function ProductGrid({ products, favorites }: Props) {\n  const [scrollY, setScrollY] = useState(0);\n  return (\n    <ScrollView onScroll={e => setScrollY(e.nativeEvent.contentOffset.y)} scrollEventThrottle={16}>\n      <Animated.View style={{ height: Math.max(80, 200 - scrollY) }}><Banner /></Animated.View>\n      <FlatList\n        data={products.filter(p => p.inStock)}\n        numColumns={2}\n        renderItem={({ item }) => <ProductCard product={item} isFav={favorites.includes(item.id)} />}\n      />\n    </ScrollView>\n  );\n}\n\nfunction ProductCard({ product, isFav }) {\n  const [pressed, setPressed] = useState(false);\n  return (\n    <Pressable onPressIn={() => setPressed(true)} onPressOut={() => setPressed(false)}>\n      <Image source={{ uri: product.imageUrl }} style={{ width: 160, height: 160 }} />\n      <Text>{product.name}</Text>\n      <Text>{`$${product.price.toFixed(2)}`}</Text>\n      {isFav && <HeartIcon />}\n    </Pressable>\n  );\n}\n```\n\nproducts has ~2,000 items, favorites ~300 ids. Fix it. Save fixed code and explanation in fix.md.",
+      "expected_output": "Removes FlatList-in-ScrollView, uses FlashList (v2) or single list with header, Reanimated scroll handler + transform for collapsing banner, favorites as Set, filtered data memoized/moved, memo row, keyExtractor, cached/sized images (expo-image + recyclingKey), recycled-state caveat, release build + Perf Monitor, ProMotion Info.plist key.",
+      "files": [],
+      "assertions": [
+        "Removes FlatList nested inside ScrollView (virtualization lost), using a single virtualized list with the banner as a header (ListHeaderComponent or equivalent content offset)",
+        "Uses FlashList (or justified FlatList tuning with keyExtractor/getItemLayout)",
+        "Replaces onScroll setState with a UI-thread scroll driver (Reanimated useAnimatedScrollHandler, or Animated.event with useNativeDriver: true)",
+        "Animates the banner with transform (translate/scale) instead of height",
+        "Converts favorites to a Set for O(1) lookup",
+        "Stops passing a new filtered array every render (memoize/move filter)",
+        "Memoizes ProductCard / stable renderItem",
+        "Addresses images: caching loader (expo-image) and/or sized sources, with recyclingKey if FlashList",
+        "Mentions recycled-row local state caveat (pressed state) or uses Pressable style callback instead of useState",
+        "Advises measuring in a release build with Perf Monitor/Flashlight (JS vs UI thread fps)",
+        "Mentions the iOS ProMotion Info.plist key CADisableMinimumFrameDurationOnPhone for the iPhone 15 Pro",
+        "Gives a numeric target or concrete measuring procedure for the release build (JS and UI thread fps, Flashlight score, or frame-time percentiles)",
+        "Makes no incorrect claim about FlatList/FlashList defaults (e.g. wrongly saying missing keyExtractor falls back to index when items have id)"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "SwiftUI (iOS 17+) photo feed hitches while scrolling on iPhone 16 Pro. Instruments shows lots of body evaluations. Code:\n\n```swift\nfinal class FeedModel: ObservableObject {\n    @Published var posts: [Post] = []\n    @Published var likedIDs: [UUID] = []\n    @Published var uploadProgress: Double = 0   // updates ~30x/sec during uploads\n}\n\nstruct FeedView: View {\n    @StateObject var model = FeedModel()\n    var body: some View {\n        ScrollView {\n            VStack {\n                ForEach(model.posts.sorted { $0.date > $1.date }.indices, id: \\.self) { i in\n                    let post = model.posts.sorted { $0.date > $1.date }[i]\n                    PostRow(post: post, liked: model.likedIDs.contains(post.id), progress: model.uploadProgress)\n                }\n            }\n        }\n    }\n}\n\nstruct PostRow: View {\n    let post: Post; let liked: Bool; let progress: Double\n    @State private var minY: CGFloat = 0\n    var body: some View {\n        let f = DateFormatter(); f.dateStyle = .medium\n        return VStack {\n            GeometryReader { g in\n                Image(uiImage: UIImage(contentsOfFile: post.localPath)!)\n                    .resizable().scaledToFill()\n                    .offset(y: minY / 4)\n                    .onChange(of: g.frame(in: .global).minY) { _, v in minY = v }\n            }.frame(height: 300).clipped()\n            Text(f.string(from: post.date))\n            if liked { Image(systemName: \"heart.fill\") }\n        }.shadow(radius: 8)\n    }\n}\n```\n\nPhotos are 12MP camera images. Make it smooth at 120Hz. Save review.md with fixed code.",
+      "expected_output": "Moves to @Observable, LazyVStack/List with Identifiable ForEach, sorting once in model, Set for liked, uploadProgress isolated from rows, static formatter, visualEffect/scrollTransition parallax instead of GeometryReader+@State, downsampled thumbnails decoded off main thread, shadow cost, Instruments hitches verification, ProMotion note.",
+      "files": [],
+      "assertions": [
+        "Replaces ObservableObject/@Published with @Observable (or otherwise isolates uploadProgress so rows aren't invalidated at 30Hz)",
+        "Replaces VStack in ScrollView with LazyVStack or List",
+        "Removes double sorting in body; stores sorted posts once in the model",
+        "Uses ForEach over Identifiable posts (stable ids), not indices with id: \\.self",
+        "Converts likedIDs to a Set",
+        "Hoists DateFormatter to static (or uses FormatStyle)",
+        "Replaces GeometryReader + @State minY parallax with visualEffect/scrollTransition (no per-frame state writes)",
+        "Downsamples 12MP images to display size (ImageIO thumbnail or preparingThumbnail) and decodes off the main thread; no UIImage(contentsOfFile:) in body",
+        "Addresses shadow cost on the whole row (shadow on simple background shape)",
+        "Advises Instruments (Animation Hitches / SwiftUI instrument) in Release on device, with hitch-ratio target",
+        "Keeps the parallax visually correct: clamps the offset or over-sizes the image so no empty strip appears",
+        "Computes the downsample size from the real on-screen frame times display scale, not a fixed pixel constant",
+        "Gives a numeric hitch target (hitch time ratio under 5 ms/s) for Release on device",
+        "Image loading is cancellable per row and not forced through a single serial decoder"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Two legacy screens, same product, both scroll badly. Android (Views, RecyclerView) and iOS (UIKit). Give me concrete fixes for both, save as review.md.\n\nAndroid adapter:\n```kotlin\nclass OrderAdapter(var orders: List<Order>, val customers: List<Customer>) : RecyclerView.Adapter<OrderVH>() {\n    fun update(newOrders: List<Order>) { orders = newOrders; notifyDataSetChanged() }  // called every 2s by polling\n    override fun onCreateViewHolder(p: ViewGroup, t: Int) = OrderVH(LayoutInflater.from(p.context).inflate(R.layout.row_order, p, false))\n    override fun onBindViewHolder(h: OrderVH, pos: Int) {\n        val o = orders[pos]\n        val c = customers.first { it.id == o.customerId }\n        h.name.text = c.name\n        h.date.text = SimpleDateFormat(\"dd MMM, HH:mm\", Locale.US).format(o.createdAt)\n        h.total.text = NumberFormat.getCurrencyInstance().format(o.total)\n        h.avatar.setImageBitmap(BitmapFactory.decodeFile(c.avatarPath))\n    }\n    override fun getItemCount() = orders.size\n}\n```\nrow_order.xml is LinearLayout(vertical) > LinearLayout(horizontal, weights) > RelativeLayout > ... 6 levels deep. Each row also holds a horizontal RecyclerView of product thumbnails with its own new adapter created in onBind.\n\niOS:\n```swift\nfunc collectionView(_ cv: UICollectionView, cellForItemAt ip: IndexPath) -> UICollectionViewCell {\n    let cell = cv.dequeueReusableCell(withReuseIdentifier: \"order\", for: ip) as! OrderCell\n    let o = orders[ip.item]\n    let fmt = DateFormatter(); fmt.dateFormat = \"dd MMM, HH:mm\"\n    cell.date.text = fmt.string(from: o.createdAt)\n    cell.avatar.image = UIImage(contentsOfFile: o.avatarPath)\n    cell.layer.cornerRadius = 12; cell.layer.masksToBounds = true\n    cell.layer.shadowRadius = 6; cell.layer.shadowOpacity = 0.3\n    return cell\n}\n// polling every 2s: self.orders = new; self.collectionView.reloadData()\n```\nAbout 1,500 orders.",
+      "expected_output": "Android: ListAdapter+DiffUtil, customer map, static formatters/precomputed strings, off-thread sized bitmap decode via Coil/Glide, flatten with ConstraintLayout, shared RecycledViewPool + initialPrefetchItemCount + reuse nested adapter. iOS: diffable data source snapshots with reconfigureItems, static formatter, downsampled async images/prefetching, shadowPath and separate shadow/mask layers, Instruments hitches.",
+      "files": [],
+      "assertions": [
+        "Android: replaces notifyDataSetChanged with ListAdapter/DiffUtil (submitList)",
+        "Android: replaces customers.first per bind with a map built once",
+        "Android: hoists SimpleDateFormat/NumberFormat out of onBindViewHolder or precomputes strings",
+        "Android: moves BitmapFactory.decodeFile off the main thread with sized decoding (Coil/Glide or inSampleSize)",
+        "Android: flattens the 6-level weighted LinearLayout/RelativeLayout row (ConstraintLayout)",
+        "Android: shares RecycledViewPool across nested RecyclerViews and reuses the inner adapter (no new adapter per bind), optionally initialPrefetchItemCount",
+        "iOS: replaces reloadData with diffable data source snapshots (reconfigureItems for content changes)",
+        "iOS: hoists DateFormatter to static",
+        "iOS: loads/decodes avatars off the main thread with downsampling (not UIImage(contentsOfFile:) in cellForItemAt), optionally prefetching",
+        "iOS: fixes shadow + masksToBounds conflict (shadowPath, separate layers) and moves layer setup out of cellForItemAt",
+        "Advises measuring (gfxinfo/Perfetto/Macrobenchmark for Android; Instruments hitches for iOS)",
+        "Builds row view models (formatted date/total strings) off the main thread on BOTH Android and iOS",
+        "An unchanged poll causes no rebinds/reconfigures (DiffUtil areContentsTheSame / snapshot identity + reconfigure only changed)",
+        "Gives numeric targets (e.g. 8.3/16.7 ms frame budget, hitch ratio < 5 ms/s, frameOverrunMs < 0)",
+        "UIKit cell setup is storyboard-safe (no fatalError in init(coder:), or uses awakeFromNib) or states the assumption",
+        "Handles formatter thread safety: does not share SimpleDateFormat/NumberFormat across background threads (uses java.time or per-thread instances)"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "I need a new Angular 20 component for our trading desk: a live order book showing 1,000 price levels per side (bids and asks), each level updating up to 20 times per second from a WebSocket, with a collapsing summary header that shrinks as the user scrolls, and a small depth bar in each row whose width shows the size at that level. Traders run it on 144 Hz and 240 Hz monitors and it must stay perfectly smooth while they scroll. There is no existing code \u2014 write the component (TypeScript + template + styles) and a short design note explaining the performance choices. Save as order-book.component.ts, order-book.component.html, order-book.component.css and design.md.",
+      "expected_output": "Signals/OnPush or zoneless, WebSocket outside Angular zone or buffered to one update per frame, CDK virtual scroll with itemSize, @for track by price, depth bar via transform scaleX not width, collapsing header via CSS scroll-driven animation or transform, precomputed formatted strings, 4.2/6.9 ms budget and measuring method.",
+      "files": [],
+      "assertions": [
+        "Buffers WebSocket messages and applies them at most once per animation frame (not a change-detection pass per message)",
+        "Uses zoneless change detection or runs the socket outside NgZone (runOutsideAngular)",
+        "Uses OnPush (or notes it is the default in v22) and signals/computed for derived rows",
+        "Virtualizes the 1,000-row lists (cdk-virtual-scroll-viewport with itemSize or equivalent)",
+        "Tracks rows by a stable key (price level): @for track, or trackBy on *cdkVirtualFor when using CDK virtual scroll \u2014 not $index",
+        "Draws the depth bar with transform (scaleX) rather than animating width",
+        "Collapses the header with transform/opacity or CSS scroll-driven animation, not by changing height or writing scroll position into component state each frame",
+        "Formats prices/sizes once per update in the data layer (no method calls or new Intl formatters in the template)",
+        "States the frame budget for 144/240 Hz (6.9 / 4.2 ms) and a measuring method (DevTools Performance with throttling or Long Animation Frames)",
+        "Does not use setInterval(\u2026,16) or frame-count based animation"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Our Flutter app's product card list stutters on iPhone 15 Pro (ProMotion). DevTools in profile mode shows the UI thread at about 3 ms per frame but the raster thread at 14\u201322 ms per frame while scrolling. My teammate says we should add more const constructors and memoize the card builds. Here's the card:\n\n```dart\nclass ProductCard extends StatelessWidget {\n  const ProductCard({super.key, required this.p});\n  final Product p;\n  @override\n  Widget build(BuildContext context) {\n    return Opacity(\n      opacity: 0.97,\n      child: Container(\n        margin: const EdgeInsets.all(8),\n        decoration: BoxDecoration(\n          borderRadius: BorderRadius.circular(16),\n          boxShadow: const [BoxShadow(blurRadius: 30, spreadRadius: 4, color: Colors.black26)],\n        ),\n        child: ClipRRect(\n          borderRadius: BorderRadius.circular(16),\n          clipBehavior: Clip.antiAliasWithSaveLayer,\n          child: Stack(children: [\n            Image.network(p.imageUrl, height: 220, width: double.infinity, fit: BoxFit.cover),\n            Positioned(\n              bottom: 0, left: 0, right: 0,\n              child: ClipRect(\n                child: BackdropFilter(\n                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),\n                  child: ShaderMask(\n                    shaderCallback: (r) => const LinearGradient(colors: [Colors.white, Colors.transparent]).createShader(r),\n                    child: Padding(padding: const EdgeInsets.all(12), child: Text(p.title, style: const TextStyle(fontSize: 18))),\n                  ),\n                ),\n              ),\n            ),\n          ]),\n        ),\n      ),\n    );\n  }\n}\n```\n\nImages come from the CMS at 2400\u00d71600. Is my teammate right? What should we actually change? Save your answer as answer.md.",
+      "expected_output": "Says teammate is wrong: UI thread 3 ms is within 8.3 ms budget, raster is the bottleneck; fixes paint cost: remove Opacity 0.97 saveLayer, antiAliasWithSaveLayer, per-card BackdropFilter blur, ShaderMask, large blurred shadow; cacheWidth decode; verify raster time with DevTools and the Render layers toggles.",
+      "files": [],
+      "assertions": [
+        "Says the teammate's const/memoization advice will not help, because the UI thread (~3 ms) is already within the 120 Hz budget and the raster thread is the bottleneck",
+        "States the 120 Hz budget (~8.3 ms) and that each thread must fit it",
+        "Removes the Opacity(0.97) wrapper and explains it forces an offscreen saveLayer",
+        "Replaces Clip.antiAliasWithSaveLayer with Clip.antiAlias or decoration-based rounding",
+        "Removes or replaces the per-card BackdropFilter blur (e.g. pre-blurred image, solid/translucent scrim)",
+        "Removes or replaces the ShaderMask on the title (e.g. gradient scrim behind text, or plain text)",
+        "Addresses the large blurred BoxShadow: reduces its cost, or keeps it with a stated, correct reason (e.g. Impeller's rounded-rect shadow fast path) and a way to measure it",
+        "Decodes images at display size (cacheWidth/ResizeImage from width \u00d7 devicePixelRatio)",
+        "Explains how to verify: raster time in DevTools profile mode, and/or toggling Render Opacity/Clip layers, checkerboardOffscreenLayers",
+        "Preserves the card's look (rounded corners, readable title over image, shadow) or calls out visual changes"
+      ]
+    }
+  ]
+}

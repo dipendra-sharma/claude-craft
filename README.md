@@ -38,12 +38,12 @@ The hooks need `jq` (a command-line JSON tool). Without it they stay off and say
 
 ## Heads up on duplicates
 
-The 13 skills in `plugins/craft/skills/` are copies. The originals still live in
+The 15 skills in `plugins/craft/skills/` are copies. The originals still live in
 `~/.claude/skills/` and are untouched. Loading this plugin while those originals are in place means
 each skill loads twice — once as `/<name>` and once as `/craft:<name>` — which doubles their context
 cost and gives the model two near-identical descriptions to choose between.
 
-Use `--plugin-dir` for testing. Before installing it for daily use, move the 13 originals out of
+Use `--plugin-dir` for testing. Before installing it for daily use, move the 15 originals out of
 `~/.claude/skills/`.
 
 Because they are copies, editing a skill in `~/.claude/skills/` does not update this repository.

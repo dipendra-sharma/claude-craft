@@ -3,7 +3,7 @@
   "name": "craft",
   "displayName": "Craft",
   "description": "Dipendra's authored best-practice skills and plain-English answering style, plus hooks that make Claude plan and run a check before calling work done, lint each edited file, start with real project facts, change dependencies only through the package manager, and follow a git branch, commit and pull request format.",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": {
     "name": "Dipendra Sharma",
     "email": "deependrasharma55@gmail.com"

@@ -117,3 +117,18 @@ Every endpoint follows the same table so clients can branch on status alone:
 - **Correlation:** accept and propagate `X-Request-Id` (generate one if absent); echo it in responses and errors, and thread it through downstream calls and logs (§19).
 - **Versioning:** URI prefix (`/v1/...`) or a version header — decide once. Additive changes don't bump the version; breaking changes do (§5).
 - **Content negotiation:** `application/json` for success, `application/problem+json` for errors; require/validate `Content-Type` on write requests.
+
+## 8. The request shape is not the response shape
+
+A write payload and the resource you hand back are two different types that happen to overlap today. Modelling them as one type is what later forces every server-owned field to be optional.
+
+```
+POST /orders          ← { "customerId": "c_88", "items": [...], "currency": "INR" }
+201 + Location        → { "id": "123", "customerId": "c_88", "items": [...], "currency": "INR",
+                          "status": "pending", "totalMinor": 4999, "createdAt": "…", "updatedAt": null }
+```
+
+- The **input** carries only what the caller is allowed to set. Server-owned fields (`id`, `status`, `totalMinor`, `createdAt`) are not merely ignored when a client sends them — they are rejected, because silently dropping them is indistinguishable from accepting them and is how mass assignment gets through (parent §8).
+- The **output** is the full resource. If you reuse the input type for it, `id` and `createdAt` have to be declared optional to satisfy the create path — and now every *reader* has to null-check an `id` that is in fact always present.
+- Keep `CreateOrder`, `UpdateOrder` and `Order` distinct even while they are 90% identical. They diverge permanently the first time you add one computed field, and splitting them later is a breaking change you'd rather not schedule.
+- The same split is why `PATCH` bodies are their own type: every field optional there is meaningful ("not supplied" ≠ "set to null"), which is exactly the ambiguity the null-vs-omit policy in §5 has to settle.
