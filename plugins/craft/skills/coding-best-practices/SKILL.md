@@ -1,6 +1,6 @@
 ---
 name: coding-best-practices
-description: "Default code-quality baseline — load for writing, editing, refactoring, or reviewing code in any language or paradigm. Owns naming, SRP/DRY/KISS/YAGNI, guard clauses, error handling, edge cases, immutability, concurrency safety, resource lifecycle, testability, evidence-gated abstraction, performance shape, security, modern-idiom currency, and surgical-change discipline. Skip only pure prose with no code and trivial one-liners (rename, typo)."
+description: "Default code-quality baseline — load for writing, editing, refactoring, or reviewing code in any language or paradigm. Owns naming, SRP/DRY/KISS/YAGNI, guard clauses, error handling, edge cases, flag-free state (boolean flags → closed types, derived values, optional fields, state machines), immutability, concurrency safety, resource lifecycle, testability, evidence-gated abstraction, performance shape, security, modern-idiom currency, and surgical-change discipline. Routes complex features and refactors whose structure is genuinely the open question (a variant set branched in many places, coordinating components, cross-thread or cross-service work, a pattern that no longer earns its keep) to design-patterns-best-practices for a pattern-or-no-pattern decision that keeps the code smaller, not bigger. Skip only pure prose with no code and trivial one-liners (rename, typo)."
 ---
 
 # Coding Best Practices
@@ -20,6 +20,7 @@ This skill is the baseline on all code work, which makes it the routing hub for 
 | `opinionated-frontend-architecture` | a fact is shared beyond one screen — a store, view-model, provider, context or repository; sign-out; "two screens show different values" | *where* a fact lives across the app, and session lifetime |
 | `testing-best-practices` | writing, fixing, or reviewing a test | test level and shape, doubles, determinism |
 | `minimize-diff` | the change has outgrown review, or wants splitting into a reviewable stack | diff size and commit/PR splitting — not the quality of what's kept, which stays here |
+| `design-patterns-best-practices` | a complex feature or refactor where the *structure itself* is the open decision and one of the signals in *When structure is the question* is true today | pattern or no pattern, which lookalike, the language-native form, and removing patterns applied without cause |
 
 Chain in both directions: when one of those invoked you for general code quality, answer that and hand the specialist question back.
 
@@ -214,6 +215,22 @@ Express reusable UI as something the framework can identify, diff, and skip. Wha
 
 This principle owns **component identity only** — the unit the framework can diff and skip. *Render cost* (work in build, collections in build, memoization thresholds, strong skipping, deferring reads, lazy lists, paint and animation cost) belongs to `render-performance-best-practices`; *state shape and data flow* (single owner, unidirectional, `UI = f(state)`, stable keys as row identity) belongs to `ui-state-best-practices`. Both defer general code quality back here. Load the one the work reaches rather than restating its material.
 
+### 19. Flags — model the state, not a bag of booleans
+Every independent boolean doubles the states a class can be in; three flags allow eight combinations, and usually only three or four mean anything. Flag bugs are rarely wrong logic — they are a combination nobody meant to allow. Before adding or keeping a flag, ask: **can every combination of it with the other fields actually happen and mean something?** If not, remove the impossible states.
+
+**Bad:** `class Upload { isUploading: bool; isDone: bool; hasFailed: bool; error: string?; url: string? }` — `isUploading && isDone` compiles, and so does a failure with a `url`.
+**Good:** `sealed Upload = Uploading(progress) | Done(url) | Failed(reason)` — exactly one state at a time, each carrying only its own data, and an exhaustive match names every place a new state must be handled.
+- **Mutually exclusive flags → one closed type** (sealed class, enum with data, discriminated union).
+- **Data that only means something in one state lives inside that state** — the error on `Failed`, the result on `Done` — never beside the status as an optional field, which rebuilds "failed with no error". A value that must outlive its state (the last error shown while a retry waits) is carried into the next state's data, not parked on the class.
+- **A flag that mirrors other data → derive it.** `isEmpty` beside `items` will drift; compute it.
+- **`hasX` beside `x` → make `x` optional.** Absence is the false case.
+- **A mode flag branched in many methods → choose the behaviour once**, where the object is built. The flag already proves two variants exist, so this passes the abstraction gate below; when it is read in only one or two places and the variants are closed, an exhaustive match is the simpler fix.
+- **Lifecycle flags (`isInitialized`, `isConnected`, `isClosed`) → make the object valid at birth**, or return a new object per stage, so nothing has to check.
+- **Ordered steps → a state machine**: states that make bad combinations unwritable, plus one transition function that rejects bad moves.
+- **Feature switches → read once at the edge** and pick the implementation there; core logic never sees the switch.
+
+Keep a flag when it is a genuinely independent fact (`isMuted`, `isChecked`, a form's `wasSubmitted`) or a derived value handed to someone else (a list row's `isSelected`) — wrapping those in a type is ceremony, not safety. Screen state (loading, error, data on one screen) is `ui-state-best-practices`; a stored `status` column and its transitions are `backend-best-practices`. Worked pairs for every shape, boolean parameters included: `references/flag-free-code.md`.
+
 ---
 
 ## Evidence-gated abstraction (SOLID)
@@ -221,6 +238,26 @@ This principle owns **component identity only** — the unit the framework can d
 Composition-over-inheritance, Open/Closed, and dependency inversion make code extensible but each adds indirection. **Apply them only with real evidence: 2+ concrete implementations existing today (or imminently required), or a genuine test-isolation need the framework can't handle otherwise.** A lone interface "for flexibility" is speculative abstraction — add it the day the second variant arrives. When this gate conflicts with a pattern recommendation from any other source, YAGNI and KISS win.
 
 Worked Bad/Good pairs for all three: `references/solid.md`.
+
+---
+
+## When structure is the question — hand off to design patterns
+
+Most code needs no pattern: plain functions, a sealed type and an exhaustive match carry it. But some features are big enough that the *shape* is the real decision, and guessing it fails in one of two directions — the same conditional smeared across six files, or a pile of interfaces with one implementation each. Those get a deliberate structure pass from `design-patterns-best-practices` before you write the code.
+
+**Hand off when at least one of these is true today, not someday:**
+- The change adds a variant to a set that already has two or more, and that set is branched on in more than one place — the same `if provider == …` in four files is the classic case.
+- Several components must coordinate — who reacts to whom, in what order, across what lifecycle — and wiring them directly would give each one a reference to the others.
+- A multi-step workflow needs undo, replay, queuing, or audit of the operations themselves, or one pipeline of optional steps where any step may stop the flow.
+- The work crosses a thread, process or service boundary — partial failure, duplicate delivery, backpressure, cancellation, cross-service consistency.
+- An existing pattern is costing more than it earns — one implementation, a wrapper that only forwards, a factory that does one `new`. Removing it is a structure decision too.
+- The user asks which structure or pattern fits.
+
+**Don't hand off for:** a bug fix, a small edit, plain CRUD, one implementation plus "we might add more later", a three-branch switch that won't grow, or a status with legal transitions — a sealed type plus a transition function settles that under *Flags* without a pattern pass. Size alone is not a signal: a long but linear feature wants well-named extracted functions, not a pattern.
+
+**The bar the pass must clear: less code to hold in your head, or one place to change — never more ceremony.** A pattern earns its place only when it removes more duplication, branching or coupling than the indirection it adds. If it adds files, hops and lines while only one variant exists, it fails the evidence gate above, and the gate wins. Prefer the language-native form — a function value, a map of functions, a sealed type, a stream — over the class-based version of the same idea. "No pattern yet, and here is the signal that would change that" is a full, good outcome of the pass.
+
+**How the two skills split the work.** The design-patterns pass returns the decision; this skill still governs the code you write from it — naming, scope discipline, zero comments, the edge cases. When writing, apply the decision silently and name the pattern at most once in your reply, only if it helps a reviewer. When reviewing, the structure finding counts inside the same 5–7 issue budget, not on top of it.
 
 ---
 
@@ -302,3 +339,4 @@ Be direct and constructive. Lead with what matters most. Skip praise for what's 
 
 - `references/code-smells.md` — the twelve-smell catalogue with Bad/Good pairs.
 - `references/solid.md` — composition over inheritance, Open/Closed, dependency inversion, worked.
+- `references/flag-free-code.md` — replacing boolean flags with closed types, derived values, optional fields, per-stage objects and state machines, worked.

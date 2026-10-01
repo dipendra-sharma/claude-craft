@@ -28,7 +28,7 @@ More than 3–4 params usually means a missing parameter object or a unit doing 
 **Good:** `createUser(profile)` where `profile` bundles the fields into one named value.
 
 ## Boolean parameters
-A boolean flag usually means the function does two things → split into two named functions (`renderCompactList` / `renderFullList`), which also reads better at the call site.
+A boolean flag usually means the function does two things → split into two named functions (`renderCompactList` / `renderFullList`), which also reads better at the call site. Boolean *fields* that combine into impossible states are the same smell at class level — see `flag-free-code.md`.
 
 ## Primitive obsession
 Raw strings/ints for domain concepts (email, money, user-id, duration) let invalid values flow deep before exploding.
