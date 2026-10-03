@@ -5,7 +5,7 @@ source "$(dirname "$0")/lib.sh"
 craft_rules_off && exit 0
 require_jq
 source "$(dirname "$0")/proof-lib.sh"
-is_git || exit 0
+proof_active || exit 0
 
 result=${1:-}
 case "$result" in pass|fail) ;; *) exit 0 ;; esac

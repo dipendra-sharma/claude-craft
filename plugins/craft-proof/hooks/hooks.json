@@ -83,7 +83,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/proof-stop-gate.sh",
-            "timeout": 60
+            "timeout": 180
           }
         ]
       }
@@ -95,6 +95,17 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/proof-user-prompt.sh",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/proof-task-gate.sh",
+            "timeout": 60
           }
         ]
       }

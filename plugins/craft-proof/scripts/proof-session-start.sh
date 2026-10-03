@@ -5,7 +5,7 @@ source "$(dirname "$0")/lib.sh"
 craft_rules_off && exit 0
 require_jq
 source "$(dirname "$0")/proof-lib.sh"
-is_git || exit 0
+proof_active || exit 0
 
 exclude_contract_from_git() {
   local exclude
@@ -17,17 +17,18 @@ exclude_contract_from_git() {
 
 session_source=$(input_field .source)
 notice=""
-mkdir -p "$STATE"
-exclude_contract_from_git
+is_git && exclude_contract_from_git
 
 if [ "$session_source" = startup ] || [ "$session_source" = clear ]; then
   if is_locked || [ -f "$WORK_CONTRACT" ]; then
     previous=$(cat "$OUTCOME" 2>/dev/null || printf 'unfinished')
+    kept_deliverables=$(cat "$DELIVERABLES" 2>/dev/null || true)
     archive_task
     if [ "$previous" = proven ]; then
       take_baseline
     else
-      notice="proof: the previous task's contract was $previous and has been archived. Its code changes still count as changed, so the next contract must cover them or name them as unverified."
+      [ -n "$kept_deliverables" ] && printf '%s\n' "$kept_deliverables" > "$DELIVERABLES"
+      notice="proof: the previous task's contract was $previous and has been archived. Its changes still count, so the next contract must cover them or name them as unverified."
     fi
   else
     take_baseline
@@ -35,7 +36,7 @@ if [ "$session_source" = startup ] || [ "$session_source" = clear ]; then
 fi
 [ -f "$BASELINE" ] || take_baseline
 
-context="The craft-proof plugin is active in this project. Before you change code, write a contract. Before you finish, every claim in it must have passing proof on the current code, recorded by hooks when you run its check.
+context="The craft-proof plugin is active in this folder. Before you change code or write a deliverable, write a contract. Before you finish, every claim in it must be proven on the final content: checks by the hooks recording the commands you run, and sources, calculations, files and rubrics by re-checking them when you finish.
 $CONTRACT_GUIDE"
 [ -n "$notice" ] && context="$context
 

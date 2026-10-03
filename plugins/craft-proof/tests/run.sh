@@ -5,6 +5,7 @@ unset CLAUDE_CRAFT_RULES CLAUDE_PROJECT_DIR
 PLUGIN_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SCRIPTS="${PROOF_SCRIPTS:-$PLUGIN_ROOT/scripts}"
 WORK_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/proof-tests.XXXXXX")
+export CLAUDE_CONFIG_DIR="$WORK_ROOT/config"
 JQ=$(command -v jq)
 passed=0
 failed=0
@@ -156,11 +157,12 @@ test_session_start_keeps_state_out_of_the_work_tree() {
   expect_equal nothing_new_in_git_status "" "$(git -C "$dir" status --porcelain)"
 }
 
-test_code_edit_needs_a_contract_but_docs_do_not() {
+test_code_and_deliverable_edits_need_a_contract_but_claude_settings_do_not() {
   local dir; dir=$(new_fixture no-contract)
   start_session "$dir"
   expect_decision code_edit_without_contract_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/cart.py" x)")"
-  expect_decision doc_edit_without_contract_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/README.md" x)")"
+  expect_decision doc_edit_without_contract_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/README.md" x)")"
+  expect_decision claude_settings_edit_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.claude/settings.local.json" '{}')")"
 }
 
 test_contract_rules_reject_weak_checks() {
@@ -429,12 +431,186 @@ test_escape_hatch_turns_the_rules_off() {
   expect_decision command_prefix_allows_shell_write allow "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "CLAUDE_CRAFT_RULES=off sed -i '' 's/7/8/' tests/test_cart.py")")"
 }
 
-test_folders_outside_git_are_left_alone() {
-  local dir="$WORK_ROOT/no-git"
-  mkdir -p "$dir" && printf 'x = 1\n' > "$dir/app.py"
+new_folder() {
+  local dir="$WORK_ROOT/$1"
+  mkdir -p "$dir"
+  printf '%s' "$dir"
+}
+
+write_file() {
+  local dir=$1 path=$2 text=$3
+  mkdir -p "$(dirname "$dir/$path")"
+  printf '%s' "$text" > "$dir/$path"
+  hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/$path" "$text")" > /dev/null
+}
+
+PLAN='# Rollout plan
+
+## Risks
+Rollback takes 5 minutes.
+
+Monthly cost: 50400 rupees a year.
+'
+
+test_outside_git_a_deliverable_needs_a_covering_contract() {
+  local dir; dir=$(new_folder plain-folder)
   start_session "$dir"
-  expect_decision edit_outside_git_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/app.py" "x = 2")")"
-  expect_decision stop_outside_git_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  expect_decision deliverable_without_contract_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/plan.md" "$PLAN")")"
+  write_contract "$dir" '{"goal":"A rollout plan with its risks","kind":"deliverable","claims":[{"id":"C1","claim":"The plan lists risks and a rollback","file":{"path":"plan.md","contains":["^## Risks","[Rr]ollback"]}}]}'
+  expect_decision deliverable_with_contract_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/plan.md" "$PLAN")")"
+  write_file "$dir" plan.md "$PLAN"
+  write_file "$dir" notes.md "stray notes"
+  expect_decision uncovered_deliverable_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  local other; other=$(new_folder plain-folder-covered)
+  start_session "$other"
+  write_contract "$other" '{"goal":"A rollout plan with its risks","kind":"deliverable","claims":[{"id":"C1","claim":"The plan lists risks and a rollback","file":{"path":"plan.md","contains":["^## Risks","[Rr]ollback"]}}]}'
+  write_file "$other" plan.md "$PLAN"
+  expect_decision covered_deliverable_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$other")")"
+  expect_equal state_kept_in_proof_folder 1 "$([ -d "$other/.proof/state" ] && printf 1 || printf 0)"
+}
+
+test_file_claims_check_the_final_content() {
+  local dir; dir=$(new_folder file-claim)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"Plan has a timeline","file":{"path":"plan.md","contains":["^## Timeline"]}}]}'
+  write_file "$dir" plan.md "$PLAN"
+  expect_decision missing_section_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+}
+
+test_source_claims_reopen_the_source() {
+  local dir; dir=$(new_folder sources)
+  printf '<html><body><p>The free tier allows <b>100 requests</b> per minute.</p></body></html>' > "$dir/pricing.html"
+  start_session "$dir"
+  write_contract "$dir" "{\"goal\":\"g\",\"kind\":\"deliverable\",\"claims\":[{\"id\":\"C1\",\"claim\":\"Rate limit is 100 per minute\",\"source\":{\"location\":\"file://$dir/pricing.html\",\"quote\":\"allows 100 requests per minute\"}},{\"id\":\"C2\",\"claim\":\"Summary exists\",\"file\":{\"path\":\"summary.md\",\"contains\":[\"100\"]}}]}"
+  write_file "$dir" summary.md "Limit: 100 per minute"
+  expect_decision quote_found_through_html_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  local other; other=$(new_folder sources-wrong)
+  printf 'The free tier allows 60 requests per minute.\n' > "$other/pricing.txt"
+  start_session "$other"
+  write_contract "$other" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"Rate limit is 100 per minute","source":{"location":"pricing.txt","quote":"allows 100 requests per minute"}},{"id":"C2","claim":"Summary exists","file":{"path":"summary.md","contains":["100"]}}]}'
+  write_file "$other" summary.md "Limit: 100 per minute"
+  expect_decision quote_missing_from_source_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$other")")"
+}
+
+test_calc_claims_are_recomputed() {
+  local dir; dir=$(new_folder calc-right)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"Yearly cost","calc":{"expression":"4200 * 12","result":"50,400"}},{"id":"C2","claim":"Plan states it","file":{"path":"plan.md","contains":["50400"]}}]}'
+  write_file "$dir" plan.md "$PLAN"
+  expect_decision correct_number_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  local other; other=$(new_folder calc-wrong)
+  start_session "$other"
+  write_contract "$other" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"Yearly cost","calc":{"expression":"4200 * 12","result":"54000"}},{"id":"C2","claim":"Plan states it","file":{"path":"plan.md","contains":["Rollback"]}}]}'
+  write_file "$other" plan.md "$PLAN"
+  expect_decision wrong_number_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$other")")"
+}
+
+test_rubric_claims_go_to_a_judge_once() {
+  local fake="$WORK_ROOT/fake-judge"
+  mkdir -p "$fake"
+  cat > "$fake/claude" <<'EOF'
+#!/bin/bash
+printf 'call\n' >> "$(dirname "$0")/calls"
+case "${*: -1}" in *PASSME*) printf '{"pass": true, "reason": "fine"}\n' ;; *) printf '{"pass": false, "reason": "the plan has no owner for each risk"}\n' ;; esac
+EOF
+  chmod +x "$fake/claude"
+  local dir; dir=$(new_folder rubric)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"Each risk has an owner","rubric":{"target":"plan.md","criteria":"PASS if every risk names an owner."}}]}'
+  write_file "$dir" plan.md "$PLAN"
+  local verdict; verdict=$(PATH="$fake:$PATH" hook proof-stop-gate.sh "$(stop_payload "$dir")")
+  expect_decision failing_rubric_blocked block "$verdict"
+  expect_equal judge_reason_reaches_claude 1 "$(printf '%s' "$verdict" | "$JQ" -r '.reason' | grep -c 'no owner for each risk')"
+  PATH="$fake:$PATH" hook proof-stop-gate.sh "$(stop_payload "$dir" true)" > /dev/null
+  expect_equal same_content_judged_once 1 "$(wc -l < "$fake/calls" | tr -d ' ')"
+  write_file "$dir" plan.md "$PLAN PASSME"
+  expect_decision passing_rubric_allowed allow "$(PATH="$fake:$PATH" hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+}
+
+test_contract_shape_rules_for_evidence() {
+  local dir; dir=$(new_folder shapes)
+  start_session "$dir"
+  mkdir -p "$dir/.proof"
+  printf '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"c","check":"./x.sh","file":{"path":"a.md","contains":["x"]}}]}' > "$dir/.proof/contract.json"
+  expect_decision two_kinds_of_evidence_rejected block "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
+  printf '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"c","file":{"path":"a.md","contains":["x"]},"fail_first":true}]}' > "$dir/.proof/contract.json"
+  expect_decision fail_first_without_check_rejected block "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
+  printf '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"c","source":{"location":"a.md","quote":"short"}}]}' > "$dir/.proof/contract.json"
+  expect_decision too_short_quote_rejected block "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
+}
+
+todo_item() {
+  local session=$1 id=$2 subject=$3 status=$4 description=${5:-}
+  mkdir -p "$CLAUDE_CONFIG_DIR/tasks/$session"
+  "$JQ" -n --arg id "$id" --arg s "$subject" --arg st "$status" --arg d "$description" \
+    '{id: $id, subject: $s, description: $d, status: $st, activeForm: "", blocks: [], blockedBy: []}' > "$CLAUDE_CONFIG_DIR/tasks/$session/$id.json"
+}
+
+session_edit_payload() {
+  "$JQ" -nc --arg cwd "$1" --arg path "$2" --arg s "$3" --arg agent "${4:-}" \
+    '{hook_event_name: "PreToolUse", tool_name: "Write", session_id: $s, cwd: $cwd, tool_input: {file_path: $path, content: "x"}} + (if $agent != "" then {agent_id: $agent} else {} end)'
+}
+
+task_payload() {
+  "$JQ" -nc --arg cwd "$1" --arg subject "$2" --arg description "${3:-}" \
+    '{hook_event_name: "TaskCompleted", cwd: $cwd, task_id: "1", task_subject: $subject, task_description: $description}'
+}
+
+session_stop_payload() {
+  "$JQ" -nc --arg cwd "$1" --arg s "$2" '{hook_event_name: "Stop", session_id: $s, cwd: $cwd, stop_hook_active: false, last_assistant_message: "Done."}'
+}
+
+task_gate_exit() {
+  printf '%s' "$2" | /bin/bash "$SCRIPTS/proof-task-gate.sh" > /dev/null 2>&1
+  printf '%s' "$?"
+}
+
+THREE_CLAIMS='{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"a","check":"./run-tests.sh"},{"id":"C2","claim":"b","check":"./run-tests.sh"},{"id":"C3","claim":"c","check":"./run-tests.sh"}]}'
+
+test_three_or_more_claims_need_a_todo_list_before_editing() {
+  local dir; dir=$(new_fixture todo-first)
+  start_session "$dir"
+  write_contract "$dir" "$THREE_CLAIMS"
+  expect_decision edit_without_todo_list_denied deny "$(hook proof-guard-edit.sh "$(session_edit_payload "$dir" "$dir/cart.py" s-none)")"
+  todo_item s-listed 1 "C1: zero total" pending
+  expect_decision edit_with_todo_list_allowed allow "$(hook proof-guard-edit.sh "$(session_edit_payload "$dir" "$dir/cart.py" s-listed)")"
+  expect_decision edit_inside_subagent_allowed allow "$(hook proof-guard-edit.sh "$(session_edit_payload "$dir" "$dir/cart.py" s-none agent-1)")"
+}
+
+test_todo_item_completes_only_when_its_claim_is_proven() {
+  local dir; dir=$(new_fixture todo-gate)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"a","check":"./run-tests.sh"},{"id":"C10","claim":"b","check":"./run-tests.sh"}]}'
+  printf '%s' "$FIXED_CART" > "$dir/cart.py"
+  expect_equal unproven_claim_item_refused 2 "$(task_gate_exit "$dir" "$(task_payload "$dir" "C1: total is never negative")")"
+  expect_equal item_naming_no_claim_allowed 0 "$(task_gate_exit "$dir" "$(task_payload "$dir" "Read the checkout code")")"
+  run_check "$dir" ./run-tests.sh > /dev/null
+  expect_equal proven_claim_item_allowed 0 "$(task_gate_exit "$dir" "$(task_payload "$dir" "C1: total is never negative")")"
+  printf '# later\n' >> "$dir/cart.py"
+  expect_equal stale_claim_item_refused 2 "$(task_gate_exit "$dir" "$(task_payload "$dir" "Finish" "Covers C10")")"
+}
+
+test_stop_checks_the_todo_list() {
+  local dir; dir=$(new_folder todo-stop)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"a","file":{"path":"plan.md","contains":["Risks"]}},{"id":"C2","claim":"b","file":{"path":"plan.md","contains":["Rollback"]}},{"id":"C3","claim":"c","file":{"path":"plan.md","contains":["rupees"]}}]}'
+  write_file "$dir" plan.md "$PLAN"
+  todo_item s-stop 1 "C1: risks" completed
+  todo_item s-stop 2 "C2: rollback" completed
+  expect_decision claim_not_named_by_any_item_blocked block "$(hook proof-stop-gate.sh "$(session_stop_payload "$dir" s-stop)")"
+  todo_item s-stop 3 "C3: cost line" in_progress
+  expect_decision open_item_blocked block "$(hook proof-stop-gate.sh "$(session_stop_payload "$dir" s-stop)")"
+  todo_item s-stop 3 "C3: cost line" in_progress "Blocked: finance has not confirmed the rate"
+  expect_decision blocked_item_allowed allow "$(hook proof-stop-gate.sh "$(session_stop_payload "$dir" s-stop)")"
+}
+
+test_deliverable_contract_locks_on_first_finish_attempt() {
+  local dir; dir=$(new_folder lock-on-stop)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"Plan has a timeline","file":{"path":"plan.md","contains":["^## Timeline"]}}]}'
+  write_file "$dir" plan.md "$PLAN"
+  hook proof-stop-gate.sh "$(stop_payload "$dir")" > /dev/null
+  expect_decision weakening_claim_after_finish_attempt_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" '{"goal":"g","kind":"deliverable","claims":[{"id":"C1","claim":"Plan has a title","file":{"path":"plan.md","contains":["^# "]}}]}')")"
 }
 
 test_messages_point_to_the_skills() {

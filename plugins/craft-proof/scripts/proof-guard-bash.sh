@@ -5,7 +5,7 @@ source "$(dirname "$0")/lib.sh"
 craft_rules_off && exit 0
 require_jq
 source "$(dirname "$0")/proof-lib.sh"
-is_git || exit 0
+proof_active || exit 0
 
 WRITE_OP_RE='>|\btee\b|\bsed\b[^|;&]*-[a-zA-Z]*i|\bperl\b[^|;&]*-[a-zA-Z]*i|\bmv\b|\bcp\b|\brm\b|\btruncate\b|\bdd\b|\bln\b|\bchmod\b|\bgit +(checkout|restore|rm|mv|reset|stash|apply|am|clean)\b|\bpython3?\b[^|;&]*-c'
 
