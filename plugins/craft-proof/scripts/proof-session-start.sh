@@ -7,15 +7,7 @@ require_jq
 source "$(dirname "$0")/proof-lib.sh"
 is_git || exit 0
 
-archive_previous_task() {
-  local dest="$STATE/archive/$(date +%Y%m%dT%H%M%S)"
-  mkdir -p "$dest"
-  for entry in "$STATE"/*; do
-    [ "$(basename "$entry")" = archive ] || mv "$entry" "$dest/"
-  done
-}
-
-exclude_state_from_git() {
+exclude_contract_from_git() {
   local exclude
   exclude=$(git -C "$ROOT" rev-parse --git-path info/exclude 2>/dev/null) || return 0
   case "$exclude" in /*) ;; *) exclude="$ROOT/$exclude" ;; esac
@@ -24,27 +16,40 @@ exclude_state_from_git() {
 }
 
 session_source=$(input_field .source)
-if [ "$session_source" = startup ] && [ -f "$BASELINE" ]; then
-  archive_previous_task
-fi
+notice=""
 mkdir -p "$STATE"
-is_git && exclude_state_from_git
-if [ ! -f "$BASELINE" ]; then
-  snapshot > "$BASELINE"
-  save_protected_copies
+exclude_contract_from_git
+
+if [ "$session_source" = startup ] || [ "$session_source" = clear ]; then
+  if is_locked || [ -f "$WORK_CONTRACT" ]; then
+    previous=$(cat "$OUTCOME" 2>/dev/null || printf 'unfinished')
+    archive_task
+    if [ "$previous" = proven ]; then
+      take_baseline
+    else
+      notice="proof: the previous task's contract was $previous and has been archived. Its code changes still count as changed, so the next contract must cover them or name them as unverified."
+    fi
+  else
+    take_baseline
+  fi
 fi
+[ -f "$BASELINE" ] || take_baseline
 
-rules="The craft-proof plugin is active in this project. Before you change code, write a contract. Before you finish, every claim in it must have passing proof on the current code, recorded by hooks when you run its check.
+context="The craft-proof plugin is active in this project. Before you change code, write a contract. Before you finish, every claim in it must have passing proof on the current code, recorded by hooks when you run its check.
 $CONTRACT_GUIDE"
+[ -n "$notice" ] && context="$context
 
-if contract_valid; then
-  rules="$rules
+$notice"
 
-Active contract (.proof/contract.json):
-$(cat "$CONTRACT")
+contract=$(active_contract)
+if contract_valid_file "$contract"; then
+  context="$context
+
+Active contract:
+$(cat "$contract")
 
 Claim status (id, state, check):
-$(claim_states)"
+$(claim_states "$contract" "$(snapshot)")"
 fi
 
-emit_context SessionStart "$rules"
+"$JQ" -n --arg c "$context" --arg m "$notice" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $c}} + (if $m != "" then {systemMessage: $m} else {} end)'

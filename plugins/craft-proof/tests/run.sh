@@ -1,11 +1,11 @@
 #!/bin/bash
 set -uo pipefail
-unset CLAUDE_CRAFT_RULES
+unset CLAUDE_CRAFT_RULES CLAUDE_PROJECT_DIR
 
 PLUGIN_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-SCRIPTS="$PLUGIN_ROOT/scripts"
-WORK_ROOT=$(mktemp -d -t proof-tests)
-JQ=$(command -v jq || printf '/usr/bin/jq')
+SCRIPTS="${PROOF_SCRIPTS:-$PLUGIN_ROOT/scripts}"
+WORK_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/proof-tests.XXXXXX")
+JQ=$(command -v jq)
 passed=0
 failed=0
 failures=""
@@ -13,10 +13,7 @@ failures=""
 new_fixture() {
   local dir="$WORK_ROOT/$1"
   mkdir -p "$dir/tests"
-  cat > "$dir/cart.py" <<'EOF'
-def total(prices, coupon=0):
-    return sum(prices) - coupon
-EOF
+  printf 'def total(prices, coupon=0):\n    return sum(prices) - coupon\n' > "$dir/cart.py"
   cat > "$dir/tests/test_cart.py" <<'EOF'
 import unittest
 from cart import total
@@ -42,14 +39,18 @@ EOF
   printf '%s' "$dir"
 }
 
+state_of() {
+  printf '%s/craft-proof/%s' "$(git -C "$1" rev-parse --path-format=absolute --git-common-dir)" "$(printf '%s' "$(cd "$1" && pwd -P)" | shasum -a 256 | cut -c1-16)"
+}
+
 hook() {
   local script=$1 payload=$2
   shift 2
-  printf '%s' "$payload" | /bin/bash "$SCRIPTS/$script" "$@"
+  printf '%s' "$payload" | /bin/bash "$SCRIPTS/$script" "$@" 2>/dev/null
 }
 
 start_session() {
-  hook proof-session-start.sh "$("$JQ" -nc --arg cwd "$1" '{hook_event_name: "SessionStart", source: "startup", cwd: $cwd}')" > /dev/null
+  hook proof-session-start.sh "$("$JQ" -nc --arg cwd "$1" --arg s "${2:-startup}" '{hook_event_name: "SessionStart", source: $s, cwd: $cwd}')" > /dev/null
 }
 
 edit_payload() {
@@ -57,8 +58,27 @@ edit_payload() {
     '{hook_event_name: "PreToolUse", tool_name: $tool, cwd: $cwd, tool_input: (if $tool == "Write" then {file_path: $path, content: $text} else {file_path: $path, old_string: "x", new_string: $text} end)}'
 }
 
+replace_payload() {
+  "$JQ" -nc --arg cwd "$1" --arg path "$2" --arg old "$3" --arg new "$4" \
+    '{hook_event_name: "PreToolUse", tool_name: "Edit", cwd: $cwd, tool_input: {file_path: $path, old_string: $old, new_string: $new}}'
+}
+
+multi_edit_payload() {
+  "$JQ" -nc --arg cwd "$1" --arg path "$2" --arg old "$3" --arg new "$4" \
+    '{hook_event_name: "PreToolUse", tool_name: "MultiEdit", cwd: $cwd, tool_input: {file_path: $path, edits: [{old_string: $old, new_string: $new}]}}'
+}
+
 bash_payload() {
   "$JQ" -nc --arg cwd "$1" --arg cmd "$2" '{hook_event_name: "PreToolUse", tool_name: "Bash", cwd: $cwd, tool_input: {command: $cmd}}'
+}
+
+result_payload() {
+  local cwd=$1 cmd=$2 code=$3 background=${4:-false}
+  if [ "$code" = 0 ]; then
+    "$JQ" -nc --arg cwd "$cwd" --arg cmd "$cmd" --argjson bg "$background" '{hook_event_name: "PostToolUse", tool_name: "Bash", tool_use_id: "toolu_test", cwd: $cwd, tool_input: {command: $cmd, run_in_background: $bg}, tool_response: {stdout: "ok", stderr: "", interrupted: false, isImage: false}}'
+  else
+    "$JQ" -nc --arg cwd "$cwd" --arg cmd "$cmd" --arg code "$code" '{hook_event_name: "PostToolUseFailure", tool_name: "Bash", tool_use_id: "toolu_test", cwd: $cwd, tool_input: {command: $cmd}, error: ("Exit code " + $code + "\nfailed")}'
+  fi
 }
 
 stop_payload() {
@@ -67,46 +87,56 @@ stop_payload() {
 }
 
 write_contract() {
+  mkdir -p "$1/.proof"
   printf '%s' "$2" > "$1/.proof/contract.json"
+  hook proof-after-edit.sh "$(edit_payload "$1" Write "$1/.proof/contract.json" "")" > /dev/null
 }
 
 run_check() {
-  local dir=$1 check=$2 result
-  if (cd "$dir" && eval "$check" > /dev/null 2>&1); then result=pass; else result=fail; fi
-  hook proof-record-evidence.sh "$(bash_payload "$dir" "$check")" "$result" > /dev/null
-  printf '%s' "$result"
+  local dir=$1 check=$2 code
+  hook proof-guard-bash.sh "$(bash_payload "$dir" "$check")" > /dev/null
+  (cd "$dir" && eval "$check" > /dev/null 2>&1)
+  code=$?
+  hook proof-record-evidence.sh "$(result_payload "$dir" "$check" "$code")" "$([ "$code" = 0 ] && printf pass || printf fail)" > /dev/null
+  [ "$code" = 0 ] && printf pass || printf fail
+}
+
+evidence_count() {
+  local file; file="$(state_of "$1")/evidence.jsonl"
+  [ -f "$file" ] || { printf 0; return; }
+  "$JQ" -s --arg r "${2:-}" 'map(select($r == "" or .result == $r)) | length' "$file"
 }
 
 decision_of() {
-  printf '%s' "$1" | "$JQ" -r '.hookSpecificOutput.permissionDecision // .decision // "allow"' 2>/dev/null || printf 'allow'
+  [ -n "$1" ] || { printf allow; return; }
+  printf '%s' "$1" | "$JQ" -r '.hookSpecificOutput.permissionDecision // .decision // "allow"' 2>/dev/null || printf allow
 }
 
 expect_decision() {
-  local name=$1 expected=$2 output=$3 actual
-  actual=$(decision_of "$output")
-  [ -n "$output" ] || actual=allow
+  local name=$1 expected=$2 actual
+  actual=$(decision_of "$3")
   if [ "$actual" = "$expected" ]; then
     passed=$((passed + 1))
   else
     failed=$((failed + 1))
     failures="$failures
 FAIL $name: expected $expected, got $actual
-$output"
+$3"
   fi
 }
 
 expect_equal() {
-  local name=$1 expected=$2 actual=$3
-  if [ "$expected" = "$actual" ]; then
+  if [ "$2" = "$3" ]; then
     passed=$((passed + 1))
   else
     failed=$((failed + 1))
     failures="$failures
-FAIL $name: expected [$expected], got [$actual]"
+FAIL $1: expected [$2], got [$3]"
   fi
 }
 
 BUGFIX_CONTRACT='{"goal":"Total never goes below zero","kind":"bugfix","claims":[{"id":"C1","claim":"A coupon larger than the cart gives 0","check":"./run-tests.sh","fail_first":true}]}'
+CHANGE_CONTRACT='{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}'
 NEW_TEST='import unittest
 from cart import total
 
@@ -119,126 +149,150 @@ FIXED_CART='def total(prices, coupon=0):
     return max(0, sum(prices) - coupon)
 '
 
-test_session_start_records_baseline_and_hides_state_from_git() {
+test_session_start_keeps_state_out_of_the_work_tree() {
   local dir; dir=$(new_fixture session-start)
   start_session "$dir"
-  expect_equal session_start_baseline_lists_test_file "1" "$(cut -f2 "$dir/.proof/baseline.tsv" | grep -c '^tests/test_cart.py$')"
-  expect_equal session_start_state_not_in_git_status "" "$(git -C "$dir" status --porcelain)"
+  expect_equal baseline_lists_existing_test 1 "$(cut -f2 "$(state_of "$dir")/baseline.tsv" | grep -c '^tests/test_cart.py$')"
+  expect_equal nothing_new_in_git_status "" "$(git -C "$dir" status --porcelain)"
 }
 
-test_code_edit_without_contract_is_denied() {
+test_code_edit_needs_a_contract_but_docs_do_not() {
   local dir; dir=$(new_fixture no-contract)
   start_session "$dir"
-  expect_decision code_edit_without_contract_is_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/cart.py" "x")")"
+  expect_decision code_edit_without_contract_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/cart.py" x)")"
+  expect_decision doc_edit_without_contract_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/README.md" x)")"
 }
 
-test_doc_edit_without_contract_is_allowed() {
-  local dir; dir=$(new_fixture doc-edit)
+test_contract_rules_reject_weak_checks() {
+  local dir; dir=$(new_fixture weak-checks)
   start_session "$dir"
-  expect_decision doc_edit_without_contract_is_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/README.md" "x")")"
-}
-
-test_contract_with_check_that_cannot_fail_is_rejected() {
-  local dir; dir=$(new_fixture trivial-check)
-  start_session "$dir"
-  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh || true"}]}'
-  expect_decision trivial_check_rejected block "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
-}
-
-test_bugfix_contract_without_fail_first_is_rejected() {
-  local dir; dir=$(new_fixture no-fail-first)
-  start_session "$dir"
-  write_contract "$dir" '{"goal":"g","kind":"bugfix","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}'
+  local check
+  for check in './run-tests.sh || true' './run-tests.sh | tail -5' './run-tests.sh || exit 0' './run-tests.sh; exit 0' 'echo ok' 'true'; do
+    mkdir -p "$dir/.proof"
+    printf '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"%s"}]}' "$check" > "$dir/.proof/contract.json"
+    expect_decision "weak_check_rejected [$check]" block "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
+  done
+  printf '{"goal":"g","kind":"fix","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}' > "$dir/.proof/contract.json"
+  expect_decision unknown_kind_rejected block "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
+  printf '{"goal":"g","kind":"bugfix","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}' > "$dir/.proof/contract.json"
   expect_decision bugfix_without_fail_first_rejected block "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
+  printf '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"npm run lint && npm test"}]}' > "$dir/.proof/contract.json"
+  expect_decision chained_with_and_accepted allow "$(hook proof-after-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "")")"
 }
 
-replace_payload() {
-  "$JQ" -nc --arg cwd "$1" --arg path "$2" --arg old "$3" --arg new "$4" \
-    '{hook_event_name: "PreToolUse", tool_name: "Edit", cwd: $cwd, tool_input: {file_path: $path, old_string: $old, new_string: $new}}'
-}
-
-test_existing_test_may_gain_tests_but_not_change_original_lines() {
-  local dir; dir=$(new_fixture grow-only)
+test_existing_tests_are_read_only_even_for_additions() {
+  local dir; dir=$(new_fixture read-only)
   start_session "$dir"
   write_contract "$dir" "$BUGFIX_CONTRACT"
-  expect_decision adding_test_to_existing_file_allowed allow "$(hook proof-guard-edit.sh "$(replace_payload "$dir" "$dir/tests/test_cart.py" 'if __name__' "    def test_oversized_coupon(self):
-        self.assertEqual(total([5], coupon=9), 0)
+  expect_decision changing_assertion_denied deny "$(hook proof-guard-edit.sh "$(replace_payload "$dir" "$dir/tests/test_cart.py" 'total([3, 4]), 7' 'total([3, 4]), 8')")"
+  expect_decision inserting_early_return_denied deny "$(hook proof-guard-edit.sh "$(replace_payload "$dir" "$dir/tests/test_cart.py" '    def test_sums_prices(self):' '    def test_sums_prices(self):
+        return')")"
+  expect_decision appending_override_denied deny "$(hook proof-guard-edit.sh "$(replace_payload "$dir" "$dir/tests/test_cart.py" 'if __name__' 'TotalTest.test_sums_prices = lambda self: None
 
-
-if __name__")")"
-  expect_decision changing_original_assertion_denied deny "$(hook proof-guard-edit.sh "$(replace_payload "$dir" "$dir/tests/test_cart.py" 'total([3, 4]), 7' 'total([3, 4]), 8')")"
-  printf '\n\nclass ExtraTest(unittest.TestCase):\n    def test_empty_cart(self):\n        self.assertEqual(total([]), 0)\n' >> "$dir/tests/test_cart.py"
-  printf '%s' "$FIXED_CART" > "$dir/cart.py"
-  hook proof-record-evidence.sh "$(bash_payload "$dir" ./run-tests.sh)" fail > /dev/null
-  run_check "$dir" ./run-tests.sh > /dev/null
-  expect_decision stop_after_appending_to_existing_test_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
-}
-
-test_check_matches_command_with_cd_prefix_or_absolute_path() {
-  local dir; dir=$(new_fixture normalize)
-  start_session "$dir"
-  write_contract "$dir" "{\"goal\":\"g\",\"kind\":\"change\",\"claims\":[{\"id\":\"C1\",\"claim\":\"c\",\"check\":\"cd $dir && ./run-tests.sh\"},{\"id\":\"C2\",\"claim\":\"c\",\"check\":\"./run-tests.sh\"}]}"
-  hook proof-record-evidence.sh "$(bash_payload "$dir" "./run-tests.sh")" pass > /dev/null
-  hook proof-record-evidence.sh "$(bash_payload "$dir" "$dir/run-tests.sh")" pass > /dev/null
-  expect_equal cd_prefixed_check_matches_plain_run 2 "$("$JQ" -s 'map(select(.claim == "C1")) | length' "$dir/.proof/evidence.jsonl")"
-  expect_equal absolute_path_run_matches_relative_check 2 "$("$JQ" -s 'map(select(.claim == "C2")) | length' "$dir/.proof/evidence.jsonl")"
-}
-
-test_existing_test_edit_is_denied_unless_declared() {
-  local dir; dir=$(new_fixture protected)
-  start_session "$dir"
-  write_contract "$dir" "$BUGFIX_CONTRACT"
-  expect_decision existing_test_edit_denied deny "$(hook proof-guard-edit.sh "$(replace_payload "$dir" "$dir/tests/test_cart.py" 'total([10], coupon=4), 6' 'total([10], coupon=4), 5')")"
-  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}],"allowed_test_changes":[{"path":"tests/test_cart.py","reason":"user changed the rule"}]}'
-  expect_decision declared_test_edit_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/tests/test_cart.py" "x")")"
-}
-
-test_new_test_file_is_allowed_but_not_with_skip_marker() {
-  local dir; dir=$(new_fixture new-test)
-  start_session "$dir"
-  write_contract "$dir" "$BUGFIX_CONTRACT"
+if __name__')")"
+  expect_decision multi_edit_addition_denied deny "$(hook proof-guard-edit.sh "$(multi_edit_payload "$dir" "$dir/tests/test_cart.py" 'if __name__' 'x = 1
+if __name__')")"
   expect_decision new_test_file_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/tests/test_coupon.py" "$NEW_TEST")")"
-  expect_decision new_test_with_skip_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/tests/test_coupon.py" "@unittest.skip('later')")")"
+  printf 'TotalTest = None\n' >> "$dir/tests/test_cart.py"
+  printf '%s' "$FIXED_CART" > "$dir/cart.py"
+  expect_decision stop_after_shell_append_to_existing_test_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
 }
 
-test_proof_records_cannot_be_written_by_tools() {
+test_declared_test_change_is_allowed() {
+  local dir; dir=$(new_fixture declared)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}],"allowed_test_changes":[{"path":"tests/test_cart.py","reason":"the rule changed"}]}'
+  expect_decision declared_test_edit_allowed allow "$(hook proof-guard-edit.sh "$(replace_payload "$dir" "$dir/tests/test_cart.py" 'total([3, 4]), 7' 'total([3, 4]), 8')")"
+}
+
+test_skip_and_focus_markers_are_blocked_in_new_tests() {
+  local dir; dir=$(new_fixture markers)
+  start_session "$dir"
+  write_contract "$dir" "$BUGFIX_CONTRACT"
+  local marker
+  for marker in '@unittest.skip("later")' '@unittest.expectedFailure' '@pytest.mark.xfail' 'self.skipTest("x")' 'it.only("x", () => {})' 'fit("x", () => {})' 'throw XCTSkip("x")' 'test("x", () {}, skip: true);'; do
+    expect_decision "marker_denied [$marker]" deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/tests/test_new.py" "$marker")")"
+  done
+}
+
+test_mobile_and_other_test_layouts_are_recognised() {
+  local dir; dir=$(new_fixture layouts)
+  mkdir -p "$dir/app/src/androidTest" "$dir/shared/src/commonTest" "$dir/Tests/AppTests" "$dir/src/latest"
+  printf 'class A\n' > "$dir/app/src/androidTest/A.kt"
+  printf 'class B\n' > "$dir/shared/src/commonTest/B.kt"
+  printf 'class C\n' > "$dir/Tests/AppTests/CTests.swift"
+  printf 'class D\n' > "$dir/app/src/FooTest.kt"
+  printf 'x\n' > "$dir/src/latest/notes.kt"
+  git -C "$dir" add -A && git -C "$dir" -c user.name=f -c user.email=f@example.invalid commit -qm layouts
+  start_session "$dir"
+  write_contract "$dir" "$CHANGE_CONTRACT"
+  local path
+  for path in app/src/androidTest/A.kt shared/src/commonTest/B.kt Tests/AppTests/CTests.swift app/src/FooTest.kt; do
+    expect_decision "protected [$path]" deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/$path" "x")")"
+  done
+  expect_decision not_a_test_folder_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/src/latest/notes.kt" "y")")"
+}
+
+test_proof_records_and_plugin_scripts_are_off_limits() {
   local dir; dir=$(new_fixture records)
   start_session "$dir"
-  expect_decision evidence_write_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/evidence.jsonl" "{}")")"
-  expect_decision shell_write_into_proof_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "echo '{}' >> .proof/evidence.jsonl")")"
+  write_contract "$dir" "$CHANGE_CONTRACT"
+  expect_decision forging_with_recorder_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "printf '{}' | bash $SCRIPTS/proof-record-evidence.sh pass")")"
+  expect_decision touching_state_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "rm -rf .git/craft-proof")")"
+  expect_decision shell_write_into_proof_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "echo '{}' > .proof/contract.json")")"
+  expect_decision writing_other_proof_file_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/evidence.jsonl" "{}")")"
+  hook proof-record-evidence.sh "$(bash_payload "$dir" ./run-tests.sh)" pass > /dev/null
+  expect_equal recorder_ignores_input_that_is_not_a_tool_result 0 "$(evidence_count "$dir")"
 }
 
-test_shell_change_to_protected_test_is_denied_but_running_it_is_allowed() {
-  local dir; dir=$(new_fixture shell)
-  start_session "$dir"
-  expect_decision sed_on_protected_test_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "sed -i '' 's/7/8/' tests/test_cart.py")")"
-  expect_decision running_tests_with_stderr_redirect_allowed allow "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "/usr/bin/python3 -m unittest tests/test_cart.py 2>&1")")"
-  expect_decision no_verify_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "git commit --no-verify -m x")")"
-}
-
-test_contract_locks_after_first_check_run() {
-  local dir; dir=$(new_fixture lock)
+test_deleting_the_contract_or_cleaning_the_tree_does_not_open_the_gate() {
+  local dir; dir=$(new_fixture clean)
   start_session "$dir"
   write_contract "$dir" "$BUGFIX_CONTRACT"
-  expect_decision contract_editable_before_any_run allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "{}")")"
-  run_check "$dir" ./run-tests.sh > /dev/null
-  expect_decision contract_locked_after_run deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" "{}")")"
-}
-
-test_stop_allows_when_nothing_changed() {
-  local dir; dir=$(new_fixture idle)
-  start_session "$dir"
-  expect_decision stop_without_changes_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
-}
-
-test_stop_blocks_code_change_without_contract() {
-  local dir; dir=$(new_fixture stop-no-contract)
-  start_session "$dir"
   printf '%s' "$FIXED_CART" > "$dir/cart.py"
-  expect_decision stop_code_change_without_contract_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  git -C "$dir" clean -fdXq
+  expect_decision stop_after_git_clean_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  local other; other=$(new_fixture missing-state)
+  start_session "$other"
+  printf '%s' "$FIXED_CART" > "$other/cart.py"
+  mv "$(state_of "$other")" "$WORK_ROOT/moved-state"
+  expect_decision stop_with_state_removed_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$other")")"
 }
 
-test_stop_allows_red_then_green_on_current_code() {
+test_background_runs_are_not_proof() {
+  local dir; dir=$(new_fixture background)
+  start_session "$dir"
+  write_contract "$dir" "$CHANGE_CONTRACT"
+  hook proof-record-evidence.sh "$(result_payload "$dir" ./run-tests.sh 0 true)" pass > /dev/null
+  expect_equal background_run_not_recorded 0 "$(evidence_count "$dir" pass)"
+}
+
+test_red_must_come_from_the_real_test_not_a_missing_or_swapped_script() {
+  local dir; dir=$(new_fixture swapped)
+  start_session "$dir"
+  write_contract "$dir" '{"goal":"g","kind":"bugfix","claims":[{"id":"C1","claim":"c","check":"./verify.sh","fail_first":true}]}'
+  expect_equal missing_script_run_fails fail "$(run_check "$dir" ./verify.sh)"
+  expect_equal missing_program_not_counted_as_red 0 "$(evidence_count "$dir" fail)"
+  printf '#!/bin/bash\nexit 1\n' > "$dir/verify.sh"; chmod +x "$dir/verify.sh"
+  run_check "$dir" ./verify.sh > /dev/null
+  printf '#!/bin/bash\nexit 0\n' > "$dir/verify.sh"
+  run_check "$dir" ./verify.sh > /dev/null
+  expect_decision stop_after_swapping_check_script_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+}
+
+test_red_then_green_needs_same_tests_and_changed_code() {
+  local dir; dir=$(new_fixture weakened-test)
+  start_session "$dir"
+  write_contract "$dir" "$BUGFIX_CONTRACT"
+  printf '%s' "$NEW_TEST" > "$dir/tests/test_coupon.py"
+  run_check "$dir" ./run-tests.sh > /dev/null
+  printf 'import unittest\n' > "$dir/tests/test_coupon.py"
+  printf '# touched\n' >> "$dir/cart.py"
+  run_check "$dir" ./run-tests.sh > /dev/null
+  expect_decision stop_after_weakening_new_test_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+}
+
+test_happy_path_red_then_green_on_current_code() {
   local dir; dir=$(new_fixture happy)
   start_session "$dir"
   write_contract "$dir" "$BUGFIX_CONTRACT"
@@ -246,120 +300,140 @@ test_stop_allows_red_then_green_on_current_code() {
   expect_equal red_run_fails fail "$(run_check "$dir" ./run-tests.sh)"
   printf '%s' "$FIXED_CART" > "$dir/cart.py"
   expect_equal green_run_passes pass "$(run_check "$dir" ./run-tests.sh)"
-  expect_decision stop_after_red_then_green_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  local verdict; verdict=$(hook proof-stop-gate.sh "$(stop_payload "$dir")")
+  expect_decision stop_after_red_then_green_allowed allow "$verdict"
+  expect_equal stop_tells_user_claims_proven 1 "$(printf '%s' "$verdict" | "$JQ" -r '.systemMessage' | grep -c 'claims proven')"
+  printf 'More notes\n' >> "$dir/README.md"
+  expect_decision doc_edit_after_proof_keeps_it_fresh allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  printf '# later\n' >> "$dir/cart.py"
+  expect_decision code_edit_after_proof_makes_it_stale block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
 }
 
-test_stop_blocks_when_claim_was_never_run() {
-  local dir; dir=$(new_fixture never-run)
+test_stop_blocks_without_proof() {
+  local dir; dir=$(new_fixture no-proof)
   start_session "$dir"
+  expect_decision stop_without_changes_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  printf '%s' "$FIXED_CART" > "$dir/cart.py"
+  expect_decision stop_without_contract_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
   write_contract "$dir" "$BUGFIX_CONTRACT"
-  printf '%s' "$FIXED_CART" > "$dir/cart.py"
-  expect_decision stop_never_run_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
-}
-
-test_stop_blocks_when_fail_first_claim_was_never_red() {
-  local dir; dir=$(new_fixture never-red)
-  start_session "$dir"
-  write_contract "$dir" "$BUGFIX_CONTRACT"
-  printf '%s' "$FIXED_CART" > "$dir/cart.py"
-  printf '%s' "$NEW_TEST" > "$dir/tests/test_coupon.py"
+  expect_decision stop_never_run_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir" true)")"
   run_check "$dir" ./run-tests.sh > /dev/null
-  expect_decision stop_never_red_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  expect_decision stop_without_red_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir" true)")"
 }
 
-test_stop_blocks_stale_proof_after_later_edit() {
-  local dir; dir=$(new_fixture stale)
+test_contract_locks_when_a_check_program_runs_in_any_form() {
+  local dir; dir=$(new_fixture peek)
   start_session "$dir"
-  write_contract "$dir" "$BUGFIX_CONTRACT"
-  printf '%s' "$NEW_TEST" > "$dir/tests/test_coupon.py"
-  run_check "$dir" ./run-tests.sh > /dev/null
-  printf '%s' "$FIXED_CART" > "$dir/cart.py"
-  run_check "$dir" ./run-tests.sh > /dev/null
-  printf '%s\n# later edit\n' "$FIXED_CART" > "$dir/cart.py"
-  expect_decision stop_stale_proof_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  write_contract "$dir" "$CHANGE_CONTRACT"
+  expect_decision contract_editable_before_any_run allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" '{"goal":"other","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}')")"
+  hook proof-guard-bash.sh "$(bash_payload "$dir" "./run-tests.sh 2>&1 | tail -3")" > /dev/null
+  expect_decision changing_goal_after_peek_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" '{"goal":"other","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}')")"
+  expect_decision adding_a_claim_after_lock_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"},{"id":"C2","claim":"d","check":"./run-tests.sh"}]}')")"
+  expect_decision upper_case_path_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.PROOF/contract.json" '{}')")"
+  expect_decision dot_dot_path_denied deny "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/nope/../.proof/contract.json" '{}')")"
 }
 
-test_stop_blocks_when_protected_test_changed_by_any_tool() {
-  local dir; dir=$(new_fixture tampered)
+test_checks_count_only_from_the_project_root() {
+  local dir; dir=$(new_fixture subfolder)
   start_session "$dir"
-  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}'
-  printf '%s' "$FIXED_CART" > "$dir/cart.py"
-  printf 'import unittest\n' > "$dir/tests/test_cart.py"
-  run_check "$dir" ./run-tests.sh > /dev/null
-  expect_decision stop_tampered_test_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  write_contract "$dir" "$CHANGE_CONTRACT"
+  mkdir -p "$dir/sub" && printf '#!/bin/bash\nexit 0\n' > "$dir/sub/run-tests.sh" && chmod +x "$dir/sub/run-tests.sh"
+  hook proof-record-evidence.sh "$(result_payload "$dir/sub" ./run-tests.sh 0)" pass > /dev/null
+  expect_equal run_from_subfolder_not_recorded 0 "$(evidence_count "$dir")"
+  mkdir -p "$dir/.scratch" && git -C "$dir/.scratch" init -q
+  expect_decision nested_repo_does_not_escape_rules deny "$(CLAUDE_PROJECT_DIR="$dir" hook proof-guard-edit.sh "$(edit_payload "$dir/.scratch" Edit "$dir/tests/test_cart.py" x)")"
 }
 
-test_stop_blocks_contract_changed_after_lock() {
-  local dir; dir=$(new_fixture relocked)
+test_files_written_by_checks_do_not_make_proof_stale() {
+  local dir; dir=$(new_fixture outputs)
+  printf '#!/bin/bash\ndate +%%s%%N > report.xml\n' > "$dir/c1.sh"; cp "$dir/c1.sh" "$dir/c2.sh"; chmod +x "$dir"/c?.sh
+  git -C "$dir" add -A && git -C "$dir" -c user.name=f -c user.email=f@example.invalid commit -qm checks
   start_session "$dir"
-  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}'
-  printf '%s' "$FIXED_CART" > "$dir/cart.py"
-  run_check "$dir" ./run-tests.sh > /dev/null
-  write_contract "$dir" '{"goal":"g2","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}'
-  expect_decision stop_contract_changed_after_lock_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"a","check":"./c1.sh"},{"id":"C2","claim":"b","check":"./c2.sh"}]}'
+  printf '# change\n' >> "$dir/cart.py"
+  run_check "$dir" ./c1.sh > /dev/null; run_check "$dir" ./c2.sh > /dev/null; run_check "$dir" ./c1.sh > /dev/null
+  expect_decision both_checks_stay_fresh allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
 }
 
-test_evidence_ignores_command_that_differs_from_check() {
-  local dir; dir=$(new_fixture different-command)
-  start_session "$dir"
-  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}]}'
-  hook proof-record-evidence.sh "$(bash_payload "$dir" "./run-tests.sh || true")" pass > /dev/null
-  expect_equal different_command_not_recorded 0 "$(cat "$dir/.proof/evidence.jsonl" 2>/dev/null | wc -l | tr -d ' ')"
-}
-
-test_stop_gives_up_after_repeating_same_block() {
+test_stop_gives_up_only_after_three_identical_blocks() {
   local dir; dir=$(new_fixture loop)
   start_session "$dir"
   printf '%s' "$FIXED_CART" > "$dir/cart.py"
   expect_decision first_stop_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir" false)")"
-  local second; second=$(hook proof-stop-gate.sh "$(stop_payload "$dir" true)")
-  expect_decision repeated_same_block_lets_turn_end allow "$second"
-  expect_equal repeated_block_tells_user true "$(printf '%s' "$second" | "$JQ" -r 'has("systemMessage")')"
+  expect_decision second_identical_stop_still_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir" true)")"
+  local third; third=$(hook proof-stop-gate.sh "$(stop_payload "$dir" true)")
+  expect_decision third_identical_stop_lets_turn_end allow "$third"
+  expect_equal giving_up_tells_user 1 "$(printf '%s' "$third" | "$JQ" -r '.systemMessage' | grep -c 'unproven')"
 }
 
-test_stop_requires_unverified_items_named_in_final_reply() {
+test_unverified_items_are_shown_to_the_user() {
   local dir; dir=$(new_fixture unverified)
   start_session "$dir"
-  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}],"unverified":["works against the production payment API"]}'
+  write_contract "$dir" '{"goal":"g","kind":"change","claims":[{"id":"C1","claim":"c","check":"./run-tests.sh"}],"unverified":["delivery to the production webhook"]}'
   printf '%s' "$FIXED_CART" > "$dir/cart.py"
   run_check "$dir" ./run-tests.sh > /dev/null
-  expect_decision stop_silent_about_unverified_blocked block "$(hook proof-stop-gate.sh "$(stop_payload "$dir" false "All done, it works.")")"
-  expect_decision stop_naming_unverified_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir" false "C1 passes. Unverified: production payment API.")")"
+  local verdict; verdict=$(hook proof-stop-gate.sh "$(stop_payload "$dir" false "All done.")")
+  expect_decision stop_allowed_regardless_of_wording allow "$verdict"
+  expect_equal user_sees_unverified_item 1 "$(printf '%s' "$verdict" | "$JQ" -r '.systemMessage' | grep -c 'Not verified: delivery to the production webhook')"
 }
 
-multi_edit_payload() {
-  "$JQ" -nc --arg cwd "$1" --arg path "$2" --arg old "$3" --arg new "$4" \
-    '{hook_event_name: "PreToolUse", tool_name: "MultiEdit", cwd: $cwd, tool_input: {file_path: $path, edits: [{old_string: $old, new_string: $new}]}}'
-}
-
-test_multi_edit_follows_the_same_test_rules() {
-  local dir; dir=$(new_fixture multi-edit)
+test_new_task_after_a_proven_one_starts_a_fresh_contract() {
+  local dir; dir=$(new_fixture next-task)
   start_session "$dir"
-  write_contract "$dir" "$BUGFIX_CONTRACT"
-  expect_decision multi_edit_changing_original_assertion_denied deny "$(hook proof-guard-edit.sh "$(multi_edit_payload "$dir" "$dir/tests/test_cart.py" 'total([3, 4]), 7' 'total([3, 4]), 8')")"
-  expect_decision multi_edit_adding_test_allowed allow "$(hook proof-guard-edit.sh "$(multi_edit_payload "$dir" "$dir/tests/test_cart.py" 'if __name__' "    def test_more(self):
-        self.assertEqual(total([1]), 1)
+  write_contract "$dir" "$CHANGE_CONTRACT"
+  printf '%s' "$FIXED_CART" > "$dir/cart.py"
+  run_check "$dir" ./run-tests.sh > /dev/null
+  hook proof-stop-gate.sh "$(stop_payload "$dir")" > /dev/null
+  hook proof-user-prompt.sh "$("$JQ" -nc --arg cwd "$dir" '{hook_event_name: "UserPromptSubmit", cwd: $cwd, prompt: "next"}')" > /dev/null
+  expect_decision new_contract_allowed_for_next_task allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" '{"goal":"next","kind":"change","claims":[{"id":"C9","claim":"c","check":"./run-tests.sh"}]}')")"
+}
 
+test_clear_archives_an_unfinished_contract_but_keeps_its_changes_counted() {
+  local dir; dir=$(new_fixture cleared)
+  start_session "$dir"
+  write_contract "$dir" "$CHANGE_CONTRACT"
+  run_check "$dir" ./run-tests.sh > /dev/null
+  printf '# unproven edit\n' >> "$dir/cart.py"
+  start_session "$dir" clear
+  expect_decision contract_writable_after_clear allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Write "$dir/.proof/contract.json" '{}')")"
+  expect_decision earlier_unproven_edit_still_counts block "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
+}
 
-if __name__")")"
-  expect_decision multi_edit_adding_skip_denied deny "$(hook proof-guard-edit.sh "$(multi_edit_payload "$dir" "$dir/tests/test_coupon.py" 'x' '@unittest.skip("later")')")"
+test_shell_guard_is_precise() {
+  local dir; dir=$(new_fixture shell)
+  printf '' > "$dir/tests/__init__.py"
+  mkdir -p "$dir/src/pkg"
+  git -C "$dir" add -A && git -C "$dir" -c user.name=f -c user.email=f@example.invalid commit -qm pkg
+  start_session "$dir"
+  expect_decision sed_on_protected_test_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "sed -i '' 's/7/8/' tests/test_cart.py")")"
+  expect_decision perl_in_place_on_test_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "perl -pi -e 's/7/8/' tests/test_cart.py")")"
+  expect_decision same_file_name_elsewhere_allowed allow "$(hook proof-guard-bash.sh "$(bash_payload "$dir" 'echo "" > src/pkg/__init__.py')")"
+  expect_decision arrow_inside_quotes_allowed allow "$(hook proof-guard-bash.sh "$(bash_payload "$dir" 'grep -n "a->b" tests/test_cart.py')")"
+  expect_decision running_tests_with_redirect_allowed allow "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "/usr/bin/python3 -m unittest tests/test_cart.py 2>&1")")"
+  expect_decision no_verify_denied deny "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "git commit --no-verify -m x")")"
+}
+
+test_check_matching_ignores_cd_prefix_absolute_path_and_spaces_in_ids() {
+  local dir; dir=$(new_fixture normalize)
+  start_session "$dir"
+  write_contract "$dir" "{\"goal\":\"g\",\"kind\":\"change\",\"claims\":[{\"id\":\"Claim one\",\"claim\":\"c\",\"check\":\"cd $dir && ./run-tests.sh\"}]}"
+  hook proof-record-evidence.sh "$(result_payload "$dir" "./run-tests.sh" 0)" pass > /dev/null
+  hook proof-record-evidence.sh "$(result_payload "$dir" "$dir/run-tests.sh" 0)" pass > /dev/null
+  expect_equal both_forms_recorded_for_id_with_space 2 "$("$JQ" -s 'map(select(.claim == "Claim one")) | length' "$(state_of "$dir")/evidence.jsonl")"
 }
 
 test_escape_hatch_turns_the_rules_off() {
   local dir; dir=$(new_fixture escape)
   start_session "$dir"
-  expect_decision env_rules_off_allows_edit_without_contract allow "$(CLAUDE_CRAFT_RULES=off hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/cart.py" "x")")"
-  expect_decision command_prefix_allows_protected_shell_write allow "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "CLAUDE_CRAFT_RULES=off sed -i '' 's/7/8/' tests/test_cart.py")")"
+  expect_decision env_rules_off_allows_edit allow "$(CLAUDE_CRAFT_RULES=off hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/cart.py" x)")"
+  expect_decision command_prefix_allows_shell_write allow "$(hook proof-guard-bash.sh "$(bash_payload "$dir" "CLAUDE_CRAFT_RULES=off sed -i '' 's/7/8/' tests/test_cart.py")")"
 }
 
 test_folders_outside_git_are_left_alone() {
   local dir="$WORK_ROOT/no-git"
-  mkdir -p "$dir"
-  printf 'x = 1\n' > "$dir/app.py"
+  mkdir -p "$dir" && printf 'x = 1\n' > "$dir/app.py"
   start_session "$dir"
-  expect_equal no_state_created_outside_git "" "$(/bin/ls -A "$dir" | /usr/bin/grep -x '.proof' || true)"
   expect_decision edit_outside_git_allowed allow "$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/app.py" "x = 2")")"
-  printf 'x = 2\n' > "$dir/app.py"
   expect_decision stop_outside_git_allowed allow "$(hook proof-stop-gate.sh "$(stop_payload "$dir")")"
 }
 
@@ -367,9 +441,9 @@ test_messages_point_to_the_skills() {
   local dir; dir=$(new_fixture skills)
   local context denial
   context=$(hook proof-session-start.sh "$("$JQ" -nc --arg cwd "$dir" '{hook_event_name: "SessionStart", source: "startup", cwd: $cwd}')")
-  denial=$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/cart.py" "x")")
-  expect_equal session_context_names_contract_skill 1 "$(printf '%s' "$context" | "$JQ" -r '.hookSpecificOutput.additionalContext' | /usr/bin/grep -c 'craft-proof:contract' || true)"
-  expect_equal missing_contract_denial_names_testing_skill 1 "$(printf '%s' "$denial" | "$JQ" -r '.hookSpecificOutput.permissionDecisionReason' | /usr/bin/grep -c 'craft-proof:testing-best-practices' || true)"
+  denial=$(hook proof-guard-edit.sh "$(edit_payload "$dir" Edit "$dir/cart.py" x)")
+  expect_equal session_context_names_contract_skill 1 "$(printf '%s' "$context" | "$JQ" -r '.hookSpecificOutput.additionalContext' | grep -c 'craft-proof:contract' || true)"
+  expect_equal denial_names_testing_skill 1 "$(printf '%s' "$denial" | "$JQ" -r '.hookSpecificOutput.permissionDecisionReason' | grep -c 'craft-proof:testing-best-practices' || true)"
 }
 
 test_fast_lint_reports_problems_in_the_edited_file() {
@@ -377,9 +451,9 @@ test_fast_lint_reports_problems_in_the_edited_file() {
   printf '{"a": 1,,}' > "$dir/broken.json"
   printf '{"a": 1}' > "$dir/ok.json"
   printf '[package]\nname = "x"\n' > "$dir/Cargo.toml"
-  expect_decision invalid_json_is_reported block "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/broken.json" x)")"
+  expect_decision invalid_json_reported block "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/broken.json" x)")"
   expect_decision valid_json_passes allow "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/ok.json" x)")"
-  expect_decision file_type_without_linter_passes allow "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/Cargo.toml" x)")"
+  expect_decision no_linter_for_type_passes allow "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/Cargo.toml" x)")"
 }
 
 for test_name in $(declare -F | awk '{print $3}' | grep '^test_'); do
@@ -387,5 +461,5 @@ for test_name in $(declare -F | awk '{print $3}' | grep '^test_'); do
 done
 
 printf '%s\n' "$failures"
-printf 'passed %d, failed %d (fixtures in %s)\n' "$passed" "$failed" "$WORK_ROOT"
+printf 'passed %d, failed %d\n' "$passed" "$failed"
 [ "$failed" -eq 0 ]

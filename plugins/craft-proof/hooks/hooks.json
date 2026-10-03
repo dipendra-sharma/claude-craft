@@ -87,6 +87,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/proof-user-prompt.sh",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }
