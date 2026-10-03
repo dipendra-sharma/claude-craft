@@ -2,12 +2,18 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "craft-proof",
   "displayName": "Craft Proof",
-  "description": "Everything in craft, with proof that cannot be faked: Claude writes a contract of user-visible claims before changing code, hooks record each check's real pass or fail against the current code, existing tests can grow but not be weakened, and Claude cannot finish until every claim is proven or named as unverified. Plus the craft skills, plain-English output style, per-file linting, project facts, package-manager-only dependencies, todo lists and git naming.",
+  "description": "Makes Claude prove its work, for code and any deliverable: a contract of user-visible claims before changing code or writing a document, each with evidence the hooks re-check (a command whose real result is recorded, a quoted source, a recomputed number, file contents, or a judged rubric), read-only existing tests, and no finishing until every claim is proven or named as unverified. Carries the fifteen craft skills plus a contract skill, and the hooks point to the skill that fits.",
   "version": "1.0.0",
   "author": {
     "name": "Dipendra Sharma",
     "email": "deependrasharma55@gmail.com"
   },
   "license": "MIT",
-  "keywords": ["best-practices", "verification", "proof", "hooks", "code-quality"]
+  "keywords": [
+    "best-practices",
+    "verification",
+    "proof",
+    "hooks",
+    "code-quality"
+  ]
 }

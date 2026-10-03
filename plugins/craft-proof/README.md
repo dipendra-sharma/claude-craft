@@ -1,11 +1,14 @@
 # Craft Proof
 
-A Claude Code plugin that makes Claude prove its work, plus Dipendra's 15 authored skills from `craft`.
+A Claude Code plugin that makes Claude prove its work, for code and for any other deliverable, plus
+Dipendra's 15 authored skills from `craft`.
 
-Before Claude changes code, it writes a contract: what the user will see when the work is done, and one
-command that proves each claim. Hooks record the real pass or fail of every check against a fingerprint
-of the current code. Claude cannot finish until every claim is proven on the final code; anything it
-cannot prove is named as unverified and shown to you.
+Before Claude changes code or writes a deliverable (a document, plan, report, analysis or data file), it
+writes a contract: what you will see when the work is done, and evidence for each claim. For code, hooks
+record the real pass or fail of every check against a fingerprint of the current code. For everything
+else, hooks re-open quoted sources, recompute numbers, check file contents, and ask a judge about what
+only judgement can check. Claude cannot finish until every claim is proven on the final content; anything
+it cannot prove is named as unverified and shown to you.
 
 Use it instead of `craft`, not alongside it: both carry the same skills.
 
@@ -18,10 +21,11 @@ Use it instead of `craft`, not alongside it: both carry the same skills.
 | `scripts/proof-*.sh` | One script per proof hook, plus `proof-lib.sh` and `lib.sh` for the shared helpers |
 | `scripts/lint-edited-file.sh` | The fast check after each edit |
 | `scripts/sync-skills.sh` | Re-copies the skills from `~/.claude/skills` and reports what changed |
-| `tests/run.sh` | 88 checks covering every hook and every known cheat, blocked and allowed |
+| `tests/run.sh` | 115 checks covering every hook, every evidence type, the todo rules and every known cheat, blocked and allowed |
 | `evals/` | Four quick cases, each run with the plugin and without it |
 | `evals-complex/` | A three.js game built from a 12-rule spec |
 | `acceptance/` | 21 hidden tests for that game, run on each finished workspace |
+| `docs/design.md` | The design this plugin was built from, how the build differs, and the evidence so far |
 
 ## The skills
 
@@ -66,9 +70,29 @@ Rules that close the usual shortcuts:
 - Background runs, runs from another folder, and anything that is not a real tool result are not proof.
 - Shell commands cannot touch the plugin's scripts or its records.
 
-The records live in `.git/craft-proof/` inside the repository, out of the work tree, so `git clean` does
-not touch them. Only the contract sits in the work tree, at `.proof/contract.json`, hidden from git through
-`.git/info/exclude`. The proof hooks act only inside git repositories.
+### Deliverables
+
+Documents, plans, reports, analyses and data files are deliverables: `.md`, `.txt`, `.rst`, `.adoc`, `.csv`
+and `.tsv` files inside a git repository, and any file Claude writes outside one. Writing a deliverable
+needs a contract, every deliverable written must be named by a claim, and the contract locks the first time
+Claude tries to finish. Each claim carries one kind of evidence, re-checked on the final content:
+
+| Evidence | Example | How it is checked |
+| :--- | :--- | :--- |
+| `check` | `"./run-tests.sh"` | The hooks record the command's real result (code only) |
+| `source` | a link or file, plus an exact quote | The hooks re-open it and look for the quote, ignoring HTML tags, spacing and case |
+| `calc` | `"4200 * 12"` equals `"50400"` | The hooks recompute it with `qalc`, or `bc` for plain arithmetic |
+| `file` | `docs/plan.md` contains `^## Risks` | The hooks match each pattern against the final file |
+| `rubric` | PASS and FAIL conditions for a file or the final reply | A judge model reads it, only after everything else passes, and only once per version of the content |
+
+Files under `.claude/` are never gated, so memory and settings writes are not affected.
+
+### Where the records live
+
+In a git repository, the records live in `.git/craft-proof/`, out of the work tree, so `git clean` does not
+touch them. The contract sits in the work tree at `.proof/contract.json`, hidden from git through
+`.git/info/exclude`. Outside a repository, both live in `.proof/` in the session's folder, and only the
+files Claude's tools write are tracked. The hooks stay off when a session starts in the home folder or `/`.
 
 ## The hooks
 
@@ -76,12 +100,13 @@ not touch them. Only the contract sits in the work tree, at `.proof/contract.jso
 | :--- | :--- | :--- |
 | `proof-session-start.sh` | At session start, after `/clear`, and after a context summary | Records the baseline fingerprint and gives Claude the contract rules. On a new session or `/clear`, archives the last task's contract; if that task was not proven, its changes still count. After a summary, gives back the active contract and each claim's status |
 | `proof-user-prompt.sh` | On each prompt | After a proven task, archives its contract and takes a new baseline, so the next task starts fresh |
-| `proof-guard-edit.sh` | Before each edit | Blocks code edits until a valid contract exists (documentation is exempt), any change to a read-only file, skip markers in tests, writes to other files under `.proof/`, and contract changes after the lock other than added claims |
+| `proof-guard-edit.sh` | Before each edit | Blocks code edits and deliverable writes until a valid contract exists, and, when the contract has 3 or more claims, until a todo list exists. Also blocks any change to a read-only file, skip markers in tests, writes to other files under `.proof/`, and contract changes after the lock other than added claims |
 | `proof-guard-bash.sh` | Before each shell command | Blocks shell writes into `.proof/`, into read-only files, or anywhere near the plugin's scripts and records, and `--no-verify`. Locks the contract when a check's program is about to run |
 | `lint-edited-file.sh` | After each edit | Runs the project's own linter on just that file and shows Claude any problems: ruff, eslint or biome, shellcheck, go vet, dart analyze, ktlint, swiftlint, rubocop, and a JSON syntax check. A missing linter is skipped |
-| `proof-after-edit.sh` | After the contract is saved | Checks the contract and rejects claims with no check, weak checks, unknown kinds, and bug fixes with no `fail_first` claim |
+| `proof-after-edit.sh` | After each edit | Notes each deliverable written. When the contract is saved, checks it and rejects claims without exactly one kind of evidence, weak checks, quotes too short to prove anything, unknown kinds, and bug fixes with no `fail_first` claim |
 | `proof-record-evidence.sh` | After each shell command | When the command matches a claim's check, records pass or fail with the code and test fingerprints. Files the check itself wrote are left out of the fingerprint. After two failures in a row it tells Claude to stop guessing |
-| `proof-stop-gate.sh` | When Claude stops | Blocks until every claim is proven on the current code, the contract is intact, and read-only files are unchanged. Fails closed if the records are missing. After three identical blocks with no progress it lets the turn end and tells you what stayed unproven |
+| `proof-task-gate.sh` | When a todo item is marked completed | Refuses it while any claim the item names (by id, such as `C2`) is not proven, and says which claim and why |
+| `proof-stop-gate.sh` | When Claude stops | Locks the contract, then blocks until every claim is named by a todo item (at 3 or more claims), no todo item is left open without a `Blocked:` reason, every check claim is proven on the current code, every source, calc and file claim holds on the final content, every deliverable is covered, rubric claims pass the judge, the contract is intact, and read-only files are unchanged. Fails closed if the records are missing. After three identical blocks with no progress it lets the turn end and tells you what stayed unproven |
 
 Matching a command to a check ignores extra spaces, a leading `cd <project> &&`, and the project's full
 path, so `./run-tests.sh` and `/abs/project/run-tests.sh` count as the same check.
@@ -104,7 +129,8 @@ There is one: `CLAUDE_CRAFT_RULES=off`.
   `CLAUDE_CRAFT_RULES=off <command>`.
 - In Claude Code's environment at startup, it turns every hook off.
 
-The hooks also read `CLAUDE_PROJECT_DIR`, which Claude Code sets, to fix the project root for the session.
+The hooks also read two variables Claude Code itself defines: `CLAUDE_PROJECT_DIR`, to fix the project root
+for the session, and `CLAUDE_CONFIG_DIR` (when you have set it), to find the session's todo list.
 
 ## Tests
 
@@ -148,5 +174,8 @@ It reports `contract` as missing from `~/.claude/skills`, which is expected: tha
 - Hooks are guardrails against shortcuts, not a wall: a shell command can always do something no pattern
   foresaw. The only hard check is the one your CI runs on every push.
 - Nothing yet checks that the claims cover the whole request, or that a check really tests its claim.
-- Proof covers code changes in git repositories. Writing, research and other tasks outside a repository
-  are not gated yet.
+- Plain chat answers are not gated; only code and deliverables are.
+- Rubric claims need the `claude` command on the PATH and cost one small model call per new version of the
+  judged content. Without it, a rubric claim cannot pass; name it as unverified instead.
+- Source checks use a plain fetch, so pages that need a login or render with JavaScript cannot be quoted.
+- Outside a git repository, only files written with the Write and Edit tools are tracked.
