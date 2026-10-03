@@ -17,7 +17,7 @@ Use it instead of `craft`, not alongside it: both carry the same skills.
 | `hooks/hooks.json` | Wires the proof hooks below to their events |
 | `scripts/proof-*.sh` | One script per hook, plus `proof-lib.sh` and `lib.sh` for the shared helpers |
 | `scripts/sync-skills.sh` | Re-copies the skills from `~/.claude/skills` and reports what changed |
-| `tests/run.sh` | 48 cases covering every hook and every cheat path, blocked and allowed |
+| `tests/run.sh` | 51 cases covering every hook and every cheat path, blocked and allowed |
 | `evals/` | Four quick cases, each run with the plugin and without it |
 | `evals-complex/` | A three.js game built from a 12-rule spec |
 | `acceptance/` | 21 hidden tests for that game, run on each finished workspace |
@@ -64,6 +64,7 @@ inside git repositories.
 | `proof-session-start.sh` | At session start and after a context summary | Records a fingerprint of every file and a copy of each existing test, and gives Claude the contract rules. After a summary, it gives back the active contract and each claim's status |
 | `proof-guard-edit.sh` | Before each edit | Blocks code edits until a valid contract exists (documentation is exempt), changes or removals of an existing test's original lines (adding new tests is fine), skip markers in tests, edits to proof records, and contract changes after it locks |
 | `proof-guard-bash.sh` | Before each shell command | Blocks shell writes into `.proof/` or into existing tests, and `--no-verify` |
+| `lint-edited-file.sh` | After each edit | Runs the project's own linter on just that file and shows Claude any problems: ruff, eslint or biome, shellcheck, go vet, dart analyze, ktlint, swiftlint, rubocop, and a JSON syntax check. A missing linter is skipped |
 | `proof-after-edit.sh` | After the contract is saved | Checks the contract and rejects claims with no check, checks that cannot fail (`true`, `echo`, `\|\| true`), and bug fixes with no `fail_first` claim |
 | `proof-record-evidence.sh` | After each shell command | When the command matches a claim's check, records pass or fail with the code fingerprint. After two failures in a row it tells Claude to stop guessing |
 | `proof-stop-gate.sh` | When Claude stops | Blocks until every claim is proven on the current code, the contract is unchanged, existing tests are intact, and unverified items are named. If the same problems repeat with no progress, it lets the turn end and tells you what stayed unproven |

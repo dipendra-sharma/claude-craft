@@ -372,6 +372,16 @@ test_messages_point_to_the_skills() {
   expect_equal missing_contract_denial_names_testing_skill 1 "$(printf '%s' "$denial" | "$JQ" -r '.hookSpecificOutput.permissionDecisionReason' | /usr/bin/grep -c 'craft-proof:testing-best-practices' || true)"
 }
 
+test_fast_lint_reports_problems_in_the_edited_file() {
+  local dir; dir=$(new_fixture lint)
+  printf '{"a": 1,,}' > "$dir/broken.json"
+  printf '{"a": 1}' > "$dir/ok.json"
+  printf '[package]\nname = "x"\n' > "$dir/Cargo.toml"
+  expect_decision invalid_json_is_reported block "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/broken.json" x)")"
+  expect_decision valid_json_passes allow "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/ok.json" x)")"
+  expect_decision file_type_without_linter_passes allow "$(hook lint-edited-file.sh "$(edit_payload "$dir" Edit "$dir/Cargo.toml" x)")"
+}
+
 for test_name in $(declare -F | awk '{print $3}' | grep '^test_'); do
   "$test_name"
 done
