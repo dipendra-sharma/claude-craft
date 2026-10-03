@@ -1,0 +1,26 @@
+{
+  "skill_name": "explain-anything",
+  "evals": [
+    {
+      "id": 0,
+      "name": "technical-index",
+      "prompt": "i've been writing python for about 3 years, mostly data scripts. my team keeps saying we need to 'add an index' on our postgres orders table and honestly i nod along but i have never understood what an index actually IS. can you explain it properly?",
+      "expected_output": "Standard depth (roughly 600-900 words). One analogy with an explicit mapping and a stated break point. One example carried through every section. A real code instance, since this reader codes. Stays on indexes, so sharding and query planners get nothing. Ends by asking what landed and what did not.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "everyday-gst",
+      "prompt": "i run a small electronics shop in pune. my CA keeps talking about input tax credit under GST and i just sign whatever he puts in front of me. explain what it actually is, i want to stop feeling stupid in those meetings",
+      "expected_output": "Standard depth, no code anywhere. The concrete instance is real rupee figures worked through. Analogy drawn from a world this reader lives in. Every insider word explained on first use, including 'input', 'credit', 'output tax' and 'CA'. Terms attached after the plain idea, never before.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "abstract-rates",
+      "prompt": "eli5 why raising interest rates is supposed to bring inflation down. i read the news every day and this has never clicked",
+      "expected_output": "Quick depth: under 400 words, three sections at most, because the reader asked for ELI5. Definition, analogy with mapping, one-line mental model. No eight-section structure. Honest about where the mechanism is contested rather than smoothed into something untrue.",
+      "files": []
+    }
+  ]
+}

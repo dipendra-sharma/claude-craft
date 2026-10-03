@@ -1,0 +1,61 @@
+{
+  "skill_name": "dashboard-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm a PM at a food delivery startup in India (~40k orders/day across 12 cities, iOS/Android/web). I want a Metabase dashboard for our checkout flow that I'll look at every morning. Filters: city, platform, date. I want to see what's driving failed payments AND what's driving successful orders \u2014 e.g. which payment method, app version, city. Our data: an `orders` table (order_id, user_id, city, platform, app_version, payment_method, payment_provider, status [created/paid/failed/cancelled], failure_code, created_at in UTC, amount) and a `checkout_events` table (session_id, user_id, step [cart_view, address, payment_page, pay_click], ts). Give me the full dashboard spec: tiles, chart types, filters, defaults, time range, everything. Save it as dashboard_spec.md.",
+      "expected_output": "A complete dashboard spec file with purpose, metric definitions (numerator/denominator), filters with defaults and wiring, time range handling (UTC vs IST, partial day, weekday-aligned comparison), funnel, and both success and failure attribution by the same dimensions.",
+      "files": [],
+      "assertions": [
+        "States the dashboard's purpose/audience/decision in a sentence",
+        "Defines payment success (or checkout conversion) with an explicit numerator and denominator",
+        "Shows success and failure breakdowns by the same dimensions (payment method/provider, app version, city, platform)",
+        "Separates expected failures (user cancel, declined, validation) from unexpected/system failures via failure_code taxonomy",
+        "Shows volume (attempts/counts) alongside every rate",
+        "Handles the incomplete current day (excludes, marks, or compares like-for-like)",
+        "Addresses UTC storage vs Indian business time zone (IST) for daily buckets",
+        "Uses a weekday-aligned comparison (e.g. vs same weekday last week / 7 days ago)",
+        "Includes a checkout funnel with step-to-step conversion from checkout_events",
+        "Includes drill-down to row-level order evidence",
+        "Specifies filter defaults and what 'All' includes/excludes (e.g. test orders, cancelled)",
+        "Includes change/deploy/release overlays or app-version rollout context"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Can you review our Datadog dashboard for the payments-api service? The on-call team uses it. Here's what's on it, top to bottom:\n1. Big number: \"Avg latency\" \u2014 avg:trace.http.request.duration{service:payments-api}, last 1 day\n2. Timeseries: \"Errors\" \u2014 sum:trace.http.request.errors{service:payments-api} by {resource_name}\n3. Timeseries: \"p99 latency by host\" \u2014 then a second query averaging those per-host p99s into one \"overall p99\" line\n4. Pie chart: \"Errors by status code\" (14 slices)\n5. Timeseries: \"Requests\" \u2014 count by env \u2014 this tile doesn't use the $env template variable\n6. Query value: \"Today's successful payments\" vs yesterday \u2014 currently shows -38% (it's 2pm)\n7. Toplist: \"Top customers by errors\" grouped by a customer_id tag\nTemplate variables: $env, $region. Default time range: past 1 week. No deploy markers anywhere. Tell me what's wrong and how to fix it. Save your review as review.md.",
+      "expected_output": "A ranked review that catches average latency, averaged percentiles, errors without traffic, the pie chart, the unwired $env tile, the partial-day comparison, high-cardinality customer_id tag, missing deploy overlays and a wrong default range for on-call.",
+      "files": [],
+      "assertions": [
+        "Flags average latency and recommends percentiles (p50/p95/p99)",
+        "Flags averaging per-host p99s as mathematically invalid",
+        "Flags error count shown without request volume and recommends error rate plus volume",
+        "Flags the 14-slice pie chart and recommends bar/top-N or timeseries",
+        "Flags the Requests tile not wired to $env as silently misleading",
+        "Flags the 2pm today-vs-full-yesterday comparison as a partial-period error",
+        "Flags customer_id as a high-cardinality metric tag (cost/usability) and suggests an alternative",
+        "Flags the missing deploy/change overlays",
+        "Flags the 1-week default range as wrong for on-call use",
+        "Recommends a RED / golden-signals structure or success-and-error pairing",
+        "Ranks correctness issues (misleading readings) above style issues"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Our weekly business dashboard shows signup\u2192paid conversion fell from 3.29% to 2.86% week over week and my boss wants to know what broke. Here's the breakdown by acquisition channel:\n\n| channel | last week signups | last week paid | this week signups | this week paid |\n|---|---|---|---|---|\n| organic | 16,000 | 512 | 16,200 | 518 |\n| paid_social | 4,000 | 60 | 12,000 | 180 |\n| referral | 3,000 | 150 | 3,050 | 153 |\n| email | 2,000 | 100 | 1,950 | 97 |\n\nWhat happened, and what should our dashboard show so next time we can see this straight away? Save your answer as answer.md.",
+      "expected_output": "Identifies a mix shift toward low-converting paid_social with flat per-channel rates, quantifies it, and recommends dashboard tiles showing per-channel volume and rate / contribution to change.",
+      "files": [],
+      "assertions": [
+        "Concludes per-channel conversion rates are essentially unchanged (nothing 'broke' within channels)",
+        "Identifies the mix shift: paid_social signups roughly tripled at ~1.5% conversion",
+        "Quantifies the effect (e.g. mix vs rate decomposition, or recomputed rate at old mix \u2248 3.3%)",
+        "Notes absolute paid conversions actually increased (822 \u2192 948)",
+        "Recommends a dashboard tile showing per-channel volume and rate side by side",
+        "Recommends a contribution / mix-vs-rate or waterfall view of the change",
+        "Recommends showing numerator and denominator (signups and paid) alongside the rate",
+        "Mentions Simpson's paradox or mix effect by name or concept",
+        "Suggests a follow-up check on paid_social quality or cohort lag (paid conversion may lag signups)"
+      ]
+    }
+  ]
+}

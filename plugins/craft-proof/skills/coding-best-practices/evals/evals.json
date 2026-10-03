@@ -1,0 +1,94 @@
+{
+  "skill_name": "coding-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "name": "kotlin-video-player-flag-review",
+      "prompt": "can you review this kotlin class? QA keeps filing bugs where the player UI shows paused and playing at the same time, or the error banner stays up after playback restarts.\n\n```kotlin\nclass VideoPlayer(private val url: String) {\n    var isInitialized = false\n    var isPlaying = false\n    var isPaused = false\n    var isBuffering = false\n    var hasEnded = false\n    var hasError = false\n    var errorMessage: String? = null\n    var isMuted = false\n    private var engine: Engine? = null\n\n    fun init() { engine = Engine(url); isInitialized = true }\n    fun play() {\n        if (!isInitialized) throw IllegalStateException(\"call init first\")\n        if (hasError) return\n        engine!!.start(); isPlaying = true; isPaused = false; hasEnded = false\n    }\n    fun pause() { if (!isInitialized) return; engine!!.pause(); isPaused = true; isPlaying = false }\n    fun seek(positionMs: Long, resume: Boolean) {\n        if (!isInitialized) return\n        engine!!.seekTo(positionMs)\n        if (resume) play() else pause()\n    }\n    fun onEngineError(msg: String) { hasError = true; errorMessage = msg; isPlaying = false; isBuffering = false }\n    fun onBuffering(buffering: Boolean) { isBuffering = buffering }\n    fun onEnded() { hasEnded = true; isPlaying = false }\n}\n```",
+      "expected_output": "A review that replaces the playback booleans with one sealed state type whose error case carries the message, removes the isInitialized check by making the player valid at construction (or lazy), splits or names the boolean resume parameter, and keeps isMuted as an independent boolean.",
+      "files": [],
+      "assertions": [
+        "Replaces the mutually exclusive playback booleans (isPlaying/isPaused/hasEnded/hasError) with one sealed class, sealed interface or enum state type",
+        "The error message exists only inside the error/failed state, not as a separate nullable field next to the state",
+        "Removes the isInitialized flag by making the player valid at construction, using lazy, or returning a separate ready object, instead of keeping the runtime check",
+        "Fixes the boolean resume parameter in seek by splitting it into two functions or replacing it with a named value",
+        "Keeps isMuted as a plain independent boolean rather than folding it into the playback state",
+        "Code in the answer contains no comments or docstrings",
+        "Lists no more than 7 issues"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "typescript-sync-job-write",
+      "prompt": "Write me a TypeScript class `SyncJob` for our desktop app's file sync. A job gets queued, then runs, then either finishes, fails, or the user cancels it. Failed jobs can be retried up to 3 times; we need to show the last error and how many attempts were made. Cancelling a finished job should not be possible. Also there's a dry-run option where it reports what would change but doesn't write files. Just the class and its types, the actual sync work can be a `runSync(dryRun: boolean): Promise<SyncReport>` function passed in.",
+      "expected_output": "A TypeScript implementation where the job status is a discriminated union, error and attempt count live only on the states they apply to, a transition guard rejects illegal moves such as cancelling a finished job, and no isRunning/isFinished style boolean fields are stored.",
+      "files": [],
+      "assertions": [
+        "Job status is modelled as a discriminated union (a tag or kind field per state), not several boolean fields",
+        "Stores no isRunning/isFinished/isFailed/isCancelled style boolean fields on the class",
+        "The last error is only present on the state(s) where a failure has happened",
+        "Cancelling a finished job is rejected by a transition guard (throws, returns an error, or is unrepresentable)",
+        "Retries are capped at 3 and the attempt count is visible to callers",
+        "Code in the answer contains no comments or docstrings"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "python-settings-restraint",
+      "prompt": "clean this up a bit? it's our notification settings model in a django side project, python 3.12\n\n```python\nfrom dataclasses import dataclass\n\n@dataclass\nclass NotificationSettings:\n    email_enabled: bool = True\n    push_enabled: bool = True\n    sms_enabled: bool = False\n    quiet_hours_enabled: bool = False\n    quiet_start: int | None = None\n    quiet_end: int | None = None\n    any_enabled: bool = True\n\n    def update_email(self, enabled: bool):\n        self.email_enabled = enabled\n        self.any_enabled = self.email_enabled or self.push_enabled or self.sms_enabled\n\n    def update_push(self, enabled: bool):\n        self.push_enabled = enabled\n        self.any_enabled = self.email_enabled or self.push_enabled or self.sms_enabled\n```",
+      "expected_output": "Keeps email/push/sms as plain independent booleans, turns any_enabled into a computed property, replaces quiet_hours_enabled plus start/end with one optional QuietHours value, and does not introduce enums, sealed types, a state machine or a class hierarchy for the channel toggles.",
+      "files": [],
+      "assertions": [
+        "Keeps email_enabled, push_enabled and sms_enabled as plain independent booleans",
+        "any_enabled becomes a computed property (or method) instead of a stored field",
+        "quiet_hours_enabled plus quiet_start/quiet_end is replaced by one optional value (for example quiet_hours: QuietHours | None)",
+        "Does not introduce an enum, sealed type, state machine or class hierarchy for the channel toggles",
+        "Code in the answer contains no comments or docstrings"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "typescript-third-payment-provider",
+      "prompt": "we're adding Razorpay as a third payment provider to our node checkout service (typescript 5.6). stripe and paypal are handled with if/else in a few places, relevant bits below. can you add razorpay? their sdk: `razorpay.orders.create({ amount, currency })` returns `{ id }`, refunds are `razorpay.payments.refund(paymentId, { amount })`, and their webhook signature header is `x-razorpay-signature`. fee is 2% flat.\n\n```ts\nimport { stripe, paypal } from \"./clients\";\n\nexport type Provider = \"stripe\" | \"paypal\";\n\nexport async function charge(provider: Provider, amountMinor: number, currency: string): Promise<string> {\n  if (provider === \"stripe\") {\n    const intent = await stripe.paymentIntents.create({ amount: amountMinor, currency });\n    return intent.id;\n  } else if (provider === \"paypal\") {\n    const order = await paypal.orders.create({ value: (amountMinor / 100).toFixed(2), currency });\n    return order.id;\n  }\n  throw new Error(\"unknown provider\");\n}\n\nexport async function refund(provider: Provider, paymentId: string, amountMinor: number): Promise<void> {\n  if (provider === \"stripe\") {\n    await stripe.refunds.create({ payment_intent: paymentId, amount: amountMinor });\n  } else {\n    await paypal.captures.refund(paymentId, { value: (amountMinor / 100).toFixed(2) });\n  }\n}\n\nexport function signatureHeader(provider: Provider): string {\n  return provider === \"stripe\" ? \"stripe-signature\" : \"paypal-transmission-sig\";\n}\n\nexport function feeMinor(provider: Provider, amountMinor: number): number {\n  if (provider === \"stripe\") return Math.round(amountMinor * 0.029) + 30;\n  return Math.round(amountMinor * 0.0349) + 49;\n}\n```",
+      "expected_output": "Gathers each provider's charge/refund/signature/fee into one unit per provider behind one shared type (a record of functions or small objects in a map keyed by Provider), so Razorpay is one new entry and the four if/else chains disappear. No factory class, abstract base or DI container. Money stays in integer minor units.",
+      "files": [],
+      "assertions": [
+        "Each provider's behaviour (charge, refund, signature header, fee) is gathered into one unit per provider behind one shared type, replacing the per-function if/else chains",
+        "Adding Razorpay is a single new provider entry; charge/refund/signatureHeader/feeMinor contain no per-provider branches afterwards",
+        "Introduces no factory class, abstract base class, provider registry class, or DI container",
+        "Amounts stay as integer minor units in the Razorpay path (no float money)",
+        "The refund fallthrough bug (non-stripe silently treated as paypal) is fixed or made impossible by the new structure",
+        "Code in the answer contains no comments or docstrings"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "python-shipping-email-restraint",
+      "prompt": "add a feature to our flask app: when an order is marked shipped, email the customer their tracking number. we already have `send_email(to: str, subject: str, body: str) -> None` in app/mail.py. product says we'll \"probably add SMS and WhatsApp at some point\" so keep that in mind. python 3.12, flask-sqlalchemy. current code:\n\n```python\ndef mark_shipped(order_id: int, tracking_number: str) -> Order:\n    order = Order.query.get_or_404(order_id)\n    order.status = OrderStatus.SHIPPED\n    order.tracking_number = tracking_number\n    db.session.commit()\n    return order\n```",
+      "expected_output": "Calls the existing send_email directly (or through one plain helper function) after the commit succeeds. Builds no notifier interface, strategy, observer, event bus or channel registry for the hypothetical SMS/WhatsApp channels, and says the structure can come when a second channel actually exists.",
+      "files": [],
+      "assertions": [
+        "Sends the email through the existing send_email with a direct call or one plain helper function",
+        "Introduces no notifier interface, abstract class, Protocol, strategy, observer, signal/event bus, or channel registry for SMS/WhatsApp",
+        "The email is sent only after db.session.commit() succeeds",
+        "Explicitly defers multi-channel structure until a second channel actually exists",
+        "Code in the answer contains no comments or docstrings"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "kotlin-analytics-factory-removal-review",
+      "prompt": "can you review this before I merge? it's the analytics layer for our android app, firebase is the only analytics we use.\n\n```kotlin\ninterface AnalyticsTracker {\n    fun track(event: String, props: Map<String, Any>)\n}\n\nclass FirebaseAnalyticsTracker(private val fa: FirebaseAnalytics) : AnalyticsTracker {\n    override fun track(event: String, props: Map<String, Any>) {\n        fa.logEvent(event, bundleOf(*props.map { it.key to it.value }.toTypedArray()))\n    }\n}\n\nabstract class AnalyticsTrackerFactory {\n    abstract fun create(): AnalyticsTracker\n}\n\nclass DefaultAnalyticsTrackerFactory(private val fa: FirebaseAnalytics) : AnalyticsTrackerFactory() {\n    override fun create(): AnalyticsTracker = FirebaseAnalyticsTracker(fa)\n}\n\nobject AnalyticsManager {\n    private lateinit var tracker: AnalyticsTracker\n    fun init(factory: AnalyticsTrackerFactory) { tracker = factory.create() }\n    fun trackPurchase(orderId: String, amount: Double) =\n        tracker.track(\"purchase\", mapOf(\"order_id\" to orderId, \"amount\" to amount))\n    fun trackScreen(name: String) = tracker.track(\"screen_view\", mapOf(\"screen\" to name))\n}\n```",
+      "expected_output": "Recommends deleting the factory abstract class and its one implementation, replacing the global object with lateinit by an injected instance, flags money as Double, and adds no new abstraction.",
+      "files": [],
+      "assertions": [
+        "Recommends deleting AnalyticsTrackerFactory and DefaultAnalyticsTrackerFactory because there is one implementation that only calls a constructor",
+        "Flags the global `object AnalyticsManager` with `lateinit` (crash if used before init, or untestable global state) and proposes an injected instance instead",
+        "Adds no new interface, factory, decorator or other abstraction",
+        "Flags money held as Double",
+        "Lists no more than 7 issues",
+        "Code in the answer contains no comments or docstrings"
+      ]
+    }
+  ]
+}

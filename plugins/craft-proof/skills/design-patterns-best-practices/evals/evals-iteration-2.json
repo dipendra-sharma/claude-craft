@@ -1,0 +1,56 @@
+{
+  "skill_name": "design-patterns-best-practices",
+  "iteration": 2,
+  "evals": [
+    {
+      "id": 0,
+      "name": "notification-service-greenfield-design",
+      "prompt": "I'm about to build the notification service on our backend (Kotlin + Postgres). The channels we actually need: FCM for push, CleverTap for engagement campaigns (which also sends its own push), Verloop for WhatsApp and in-app chat, plus plain SMS and email. Singular needs attribution events fired for some of these too. Every one is a different vendor SDK with its own payload shape, its own retry rules and its own rate limit, and CleverTap and Verloop each have their own idea of what a 'user' is that doesn't match ours. Marketing keeps saying they'll add more channels. Nothing is written yet - help me think through how to structure this before I start.",
+      "assertions": [
+        "Recommends one abstraction per channel (Strategy, a map of handlers, or a sealed interface) instead of one method with a channel conditional",
+        "Wraps each vendor SDK behind an interface the team owns so vendor payload shapes do not leak into the domain",
+        "Does NOT put an attribution/measurement tool (Singular) behind the same interface as an engagement tool (CleverTap) - checks they actually share a contract before combining them",
+        "Fires attribution events off the domain event (purchase, signup), NOT off the notification-sent event",
+        "Applies both halves of the evidence gate - asks whether the variation is speculative AND whether any abstraction is load-bearing regardless",
+        "Offers the Kotlin-native lighter form (function type, sealed interface, or map of handlers), not only a class-per-channel hierarchy",
+        "Names a concrete cost of the abstraction it recommends",
+        "Does NOT recommend an abstract base sender class with template hooks, and does NOT recommend a separate module per vendor or per transport",
+        "Treats consent, suppression and opt-out as required now rather than deferring them as speculative flexibility",
+        "Treats per-channel retry and rate-limit policy as configuration/data separate from the pattern choice",
+        "Retains concrete vendor and platform detail (for example FCM multicast partial success, per-channel deadlines, or provider-vs-channel as separate dimensions) rather than only pattern-level advice"
+      ],
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "state-vs-strategy-order-lifecycle",
+      "prompt": "designing the checkout flow for our app, nothing built yet. an order goes created -> paid -> packed -> shipped -> delivered, and there are rules about which moves are legal (cant ship an order that isnt paid, cant cancel after shipped). each stage also exposes different actions in the ui - and note a customer and a warehouse operator see different things. we're on kotlin. i keep flip flopping between Strategy and State for this, or whether i should just use a sealed class. which one is it and why",
+      "assertions": [
+        "Chooses the State shape (sealed type plus a transition function) over Strategy",
+        "Gives the disambiguating reason: one stage determines which stages are legal next, whereas strategies are interchangeable and mutually ignorant",
+        "Does NOT tell the reader to render the UI action list directly from the domain state's allowed transitions",
+        "Provides a viewer-aware action list (a function of state AND who is looking) kept separate from the transition table",
+        "Notes that some UI actions are not state transitions at all (for example track shipment, reorder, rate, contact support)",
+        "Presents compiler-checked exhaustiveness as a leading benefit of the sealed form rather than burying it",
+        "Rejects illegal transitions in one place, as a returned result rather than scattered call-site checks",
+        "Kotlin snippets are internally consistent - every referenced helper and field is defined, and when-branches are consistent about is"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "load-bearing-interface-module-port",
+      "prompt": "multi-module kotlin backend. our :payments:domain module declares `interface PaymentGateway` and there is exactly one implementation, `RazorpayGateway`, over in :payments:infra. a new joiner has opened a PR that deletes the interface and moves the class into domain, arguing one implementation doesn't need an interface. he's not wrong that there's only one. but we launch in UAE next quarter and the regulator there requires a local acquirer, so there will be a second gateway, and finance wants the gateway chosen per country at runtime. should the PR land?",
+      "assertions": [
+        "Concludes the PR should NOT land / the interface should stay",
+        "Identifies the module boundary as a reason it is load-bearing - :payments:domain must not depend on :payments:infra, so the interface is a port",
+        "Identifies the imminent second implementation (UAE regulatory acquirer) as independent justification",
+        "Identifies that a runtime per-country choice makes a factory or registry legitimate rather than ceremony",
+        "Explicitly reasons past the one-implementation heuristic rather than stopping at the count",
+        "Does NOT rest the argument mainly on the test-seam / mocking justification",
+        "Says concretely what would make the interface deletable, so the heuristic is not abandoned entirely"
+      ],
+      "files": []
+    }
+  ]
+}
