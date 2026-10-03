@@ -121,7 +121,7 @@ if [ -z "$problems" ]; then
   printf 'proven\n' > "$OUTCOME"
   : > "$GATE_MEMORY"
   total=$("$JQ" -r '.claims | length' "$contract")
-  message="proof: all $total claims proven on the final code."
+  message="proof: all $total claims proven on the final content."
   [ -n "$unverified" ] && message="$message $unverified"
   "$JQ" -n --arg m "$message" '{systemMessage: $m}'
   exit 0
