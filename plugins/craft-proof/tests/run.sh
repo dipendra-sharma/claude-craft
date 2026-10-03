@@ -604,6 +604,26 @@ test_stop_checks_the_todo_list() {
   expect_decision blocked_item_allowed allow "$(hook proof-stop-gate.sh "$(session_stop_payload "$dir" s-stop)")"
 }
 
+test_home_folder_repository_is_not_the_project() {
+  local home="$WORK_ROOT/dotfiles-home"
+  mkdir -p "$home/work"
+  git -C "$home" init -q
+  local work="$home/work"
+  local event
+  event=$("$JQ" -nc --arg c "$work" '{hook_event_name: "SessionStart", source: "startup", cwd: $c}')
+  printf '%s' "$event" | HOME="$home" CLAUDE_PROJECT_DIR="$work" /bin/bash "$SCRIPTS/proof-session-start.sh" > /dev/null 2>&1
+  expect_decision contract_write_in_project_allowed allow "$(printf '%s' "$(edit_payload "$work" Write "$work/.proof/contract.json" '{}')" | HOME="$home" CLAUDE_PROJECT_DIR="$work" /bin/bash "$SCRIPTS/proof-guard-edit.sh" 2>/dev/null)"
+  expect_equal state_kept_in_project_not_home 1 "$([ -d "$work/.proof/state" ] && printf 1 || printf 0)"
+}
+
+test_missing_contract_message_gives_the_exact_path() {
+  local dir; dir=$(new_fixture exact-path)
+  mkdir -p "$dir/pkg"
+  start_session "$dir"
+  local denial; denial=$(hook proof-guard-edit.sh "$(edit_payload "$dir/pkg" Write "$dir/pkg/a.py" x)")
+  expect_equal denial_names_contract_path 1 "$(printf '%s' "$denial" | "$JQ" -r '.hookSpecificOutput.permissionDecisionReason' | grep -c -F "$(cd "$dir" && pwd -P)/.proof/contract.json")"
+}
+
 test_deliverable_contract_locks_on_first_finish_attempt() {
   local dir; dir=$(new_folder lock-on-stop)
   start_session "$dir"

@@ -38,7 +38,7 @@ add_problem() {
 }
 
 if ! contract_valid_file "$contract"; then
-  add_problem "Work changed but there is no usable contract:
+  add_problem "Work changed but there is no usable contract at $ROOT_PHYSICAL/.proof/contract.json:
 $(contract_errors_of "$contract")
 $CONTRACT_GUIDE"
 else

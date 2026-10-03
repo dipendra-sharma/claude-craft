@@ -57,6 +57,7 @@ INPUT_CWD=$(input_field .cwd)
 SESSION_BASE=${CLAUDE_PROJECT_DIR:-$INPUT_CWD}
 IN_GIT=""
 ROOT=$(git -C "$SESSION_BASE" rev-parse --show-toplevel 2>/dev/null || true)
+case "$(physical_dir "${ROOT:-/nonexistent}")" in "$(physical_dir ~)"|/) ROOT="" ;; esac
 if [ -n "$ROOT" ]; then IN_GIT=yes; else ROOT=$SESSION_BASE; fi
 ROOT_PHYSICAL=$(physical_dir "$ROOT")
 CWD_PHYSICAL=$(physical_dir "$INPUT_CWD")

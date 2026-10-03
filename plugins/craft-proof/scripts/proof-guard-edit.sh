@@ -40,7 +40,7 @@ if is_protected "$rel" && ! allowed_test_change "$rel"; then
 fi
 
 if ! contract_valid_file "$(active_contract)"; then
-  deny_tool "No valid contract yet, so this edit is blocked. Code changes and deliverables (documents, plans, reports, data files, and any file outside a git repository) need a contract first.
+  deny_tool "No valid contract yet, so this edit is blocked. Code changes and deliverables (documents, plans, reports, data files, and any file outside a git repository) need a contract first. Write it at exactly $ROOT_PHYSICAL/.proof/contract.json.
 $(contract_errors_of "$(active_contract)")
 $CONTRACT_GUIDE"
 fi
