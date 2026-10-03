@@ -12,8 +12,28 @@
       "displayName": "Craft",
       "description": "Fifteen authored best-practice skills covering code, backend, database, dashboards, testing, render performance, design patterns, decisions and explanation, plus a plain-English output style and hooks for todo lists, proof of work, per-file linting, project facts, package-manager-only dependencies, and git naming.",
       "category": "productivity",
-      "keywords": ["best-practices", "skills", "code-quality", "output-style"],
+      "keywords": [
+        "best-practices",
+        "skills",
+        "code-quality",
+        "output-style"
+      ],
       "defaultEnabled": true
+    },
+    {
+      "name": "craft-proof",
+      "source": "./plugins/craft-proof",
+      "displayName": "Craft Proof",
+      "description": "The fifteen craft skills plus a contract skill, with hooks that make Claude prove its work: a contract of user-visible claims before code changes, each check's real pass or fail recorded against the current code, existing tests that can grow but not be weakened, and no finishing until every claim is proven or named as unverified. Use instead of craft.",
+      "category": "productivity",
+      "keywords": [
+        "best-practices",
+        "skills",
+        "verification",
+        "proof",
+        "hooks"
+      ],
+      "defaultEnabled": false
     }
   ]
 }
